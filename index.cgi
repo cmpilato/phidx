@@ -98,7 +98,12 @@ if path_info:
     print '<h1>Photo Index: ' + location + '</h1>'
 else:
     print '<h1>Photo Index</h1>'
-print '<p>WARNING: Pages with photos might take a while to load.</p>'
+print '<p>'
+print '<b>WARNING:</b> Pages with photos might take a while to load.<br/>'
+print 'Folks with a slow Internet connection should probably'
+print 'toggle the thumbnail display (located at the bottom of this'
+print 'page) to <b>off</b>.'
+print '</p>'
 if len(subdirs):
     print '<h2>Subdirectories:</h2>'
     print '<ul>'
