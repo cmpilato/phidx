@@ -8,7 +8,7 @@ import urllib
 import sys
 import cgi
 
-__version__ = '0.1'
+__version__ = '0.2'
 
 # Stylesheet info:
 css_data = """
@@ -41,23 +41,30 @@ P {
 
 """
 
-# Get environment and CGI info
+# Get environment info.
 remote_addr = os.environ.get('REMOTE_ADDR')
 script_name = os.environ.get('SCRIPT_NAME')
 server_name = os.environ.get('SERVER_NAME')
-script_location = 'http://' + server_name + script_name
-path_url = 'http://' + server_name + os.path.dirname(script_name)
+
+# Build the script hrefs (one for running the script, one for
+# appending photo path stuffs.
+script_href = 'http://' + server_name + urllib.quote(script_name)
+script_dir_href = os.path.dirname(script_href)
+
+# Parse the path info.
 path_info = os.environ.get('PATH_INFO')
 if path_info and (path_info[0] == '/'):
     path_info = path_info[1:]
 if path_info == '':
     path_info = None
+
+# Get the current timestamp.
 local_time = time.ctime()
 
-# Check out options
+# Check out CGI options.
 cgi_vars = cgi.parse()
-if cgi_vars.has_key('thumbnails'):
-    thumbnails = (cgi_vars['thumbnails'])[0]
+if cgi_vars.has_key('t'):
+    thumbnails = (cgi_vars['t'])[0]
 else:
     thumbnails = 'on'
 
@@ -66,10 +73,7 @@ subdirs = []
 images = []
 
 # Loop over the directory entries at the path location.
-if (not path_info):
-    location = '.'
-else:
-    location = path_info
+location = path_info or '.'
 entries = os.listdir(location)
 entries.sort()
 for entry in entries:
@@ -104,46 +108,50 @@ print 'Folks with a slow Internet connection should probably'
 print 'toggle the thumbnail display (located at the bottom of this'
 print 'page) to <b>off</b>.'
 print '</p>'
-if len(subdirs):
-    print '<h2>Subdirectories:</h2>'
-    print '<ul>'
-    subdirs.reverse()
-    for subdir in subdirs:
-        if thumbnails == 'off':
-            qquery = '?thumbnails=off'
-        else:
-            qquery = ''
-        if path_info:
-            url = script_location + '/' + path_info + '/' \
-                  + urllib.quote(subdir)
-        else:
-            url = script_location + '/' + urllib.quote(subdir)
-        print '<li><a href="%s%s">%s</a></li>' % (url, qquery, subdir)
-    print '</ul>'
+
+# Print a section for subdirectories.
+print '<h2>Subdirectories:</h2>'
+print '<ul>'
+subdirs.reverse()
+base_href = script_href
+if path_info:
+    base_href = base_href + '/' + urllib.quote(path_info)
+    this_href = os.path.dirname(base_href)
+    if thumbnails == 'off':
+        this_href = this_href + '?t=off'
+    print '<li style="font-style: italic;"><a href="%s">' \
+          '[PARENT DIRECTORY]</a></li>' % (this_href)
+for subdir in subdirs:
+    this_href = base_href + '/' + urllib.quote(subdir)        
+    if thumbnails == 'off':
+        this_href = this_href + '?t=off'
+    print '<li><a href="%s">%s</a></li>' % (this_href, subdir)
+print '</ul>'
+
+# If there are any actual images, print a section for them.    
 if len(images):
     print '<h2>Photos:</h2>'
     if thumbnails == 'off':
         print '<ul>'
-    else:
-        print '<p>'
-    for image in images:
-        url = path_url + '/' + location + '/' + urllib.quote(image)
-        if thumbnails == 'off':
-            img_tag = '<li>' + image + '</li>'
-        else:
-            img_tag = '<img src="' + url + '"/>'
-        print '<a href="%s">%s</a>' % (url, img_tag)
-    if thumbnails == 'off':
+        for image in images:
+            url = script_dir_href + '/' + urllib.quote(location + '/' + image)
+            print '<li><a href="%s">%s</a></li>' % (url, image)
         print '</ul>'
     else:
+        print '<p>'
+        for image in images:
+            url = script_dir_href + '/' + urllib.quote(location + '/' + image)
+            print '<a href="%s"><img src="%s"/></a></li>' % (url, url)
         print '</p>'
+
+# Print the options section.
 print '<h2>Options:</h2>'
 print '<p>'
-thumbnail_toggle_url = script_location
+thumbnail_toggle_url = script_href
 if path_info:
-    thumbnail_toggle_url = thumbnail_toggle_url + '/' + path_info
+    thumbnail_toggle_url = thumbnail_toggle_url + '/' + urllib.quote(path_info)
 if thumbnails != 'off':
-    thumbnail_toggle_url = thumbnail_toggle_url + '?thumbnails=off'
+    thumbnail_toggle_url = thumbnail_toggle_url + '?t=off'
 print 'Thumbnail display is: <b>%s</b> [<a href="%s">toggle</a>]<br/>' \
       % (thumbnails, thumbnail_toggle_url)
 print '</p>'
