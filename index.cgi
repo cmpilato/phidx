@@ -6,6 +6,7 @@ import time
 import string
 import urllib
 import sys
+import cgi
 
 __version__ = '0.1'
 
@@ -53,6 +54,13 @@ if path_info == '':
     path_info = None
 local_time = time.ctime()
 
+# Check out options
+cgi_vars = cgi.parse()
+if cgi_vars.has_key('thumbnails'):
+    thumbnails = (cgi_vars['thumbnails'])[0]
+else:
+    thumbnails = 'on'
+
 # Initialize our subdirs and image list.
 subdirs = []
 images = []
@@ -96,19 +104,47 @@ if len(subdirs):
     print '<ul>'
     subdirs.reverse()
     for subdir in subdirs:
+        if thumbnails == 'off':
+            qquery = '?thumbnails=off'
+        else:
+            qquery = ''
         if path_info:
             url = script_location + '/' + path_info + '/' \
                   + urllib.quote(subdir)
         else:
             url = script_location + '/' + urllib.quote(subdir)
-        print '<li><a href="%s">%s</a></li>' % (url, subdir)
+        print '<li><a href="%s%s">%s</a></li>' % (url, qquery, subdir)
     print '</ul>'
 if len(images):
     print '<h2>Photos:</h2>'
-    print '<p>'
+    if thumbnails == 'off':
+        print '<ul>'
+    else:
+        print '<p>'
     for image in images:
         url = path_url + '/' + location + '/' + urllib.quote(image)
-        print '<a href="%s"><img src="%s"/></a>' % (url, url)
-    print '</p>'
+        if thumbnails == 'off':
+            img_tag = '<li>' + image + '</li>'
+        else:
+            img_tag = '<img src="' + url + '"/>'
+        print '<a href="%s">%s</a>' % (url, img_tag)
+    if thumbnails == 'off':
+        print '</ul>'
+    else:
+        print '</p>'
+print '<h2>Options:</h2>'
+print '<p>'
+thumbnail_toggle_url = script_location
+if path_info:
+    thumbnail_toggle_url = thumbnail_toggle_url + '/' + path_info
+if thumbnails != 'off':
+    thumbnail_toggle_url = thumbnail_toggle_url + '?thumbnails=off'
+print 'Thumbnail display is: <b>%s</b> [<a href="%s">toggle</a>]<br/>' \
+      % (thumbnails, thumbnail_toggle_url)
+print '</p>'
+print '<hr/>'
+print '<p><i>Photo indexing script by '
+print '   <a href="http://www.red-bean.com/cmpilato/">C. Michael Pilato</a><br/>'
+print '   <i>Current time: %s</i></p>' % (local_time)
 print '</body>'
 print '</html>'
