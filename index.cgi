@@ -8,38 +8,53 @@ import urllib
 import sys
 import cgi
 
-__version__ = '0.2'
+__version__ = '1.0'
 
 # Stylesheet info:
 css_data = """
-BODY {
-    background: white;
-}
-IMG {
-    border: 10px;
-    width: 160px;
-    height: 120px;
-}
-H1 {
-    font-family: verdana, arial, helvetica, sans-serif;
-    font-size: 24px;
-    font-weight: bold;
-    font-style: normal;
-}
-H2 {
-    font-family: verdana, arial, helvetica, sans-serif;
-    font-size: 18px;
-    font-weight: bold;
-    font-style: italic;
-}
-P {
-    font-family: verdana, arial, helvetica, sans-serif;
+body { background: white; }
+img { border: 10px;
+      width: 160px;
+      height: 120px; }
+h1 { font-family: verdana, arial, helvetica, sans-serif;
+     font-size: 24px;
+     font-weight: bold;
+     font-style: normal; }
+h2 { font-family: verdana, arial, helvetica, sans-serif;
+     font-size: 18px;
+     font-weight: bold;
+     font-style: italic; }
+p { font-family: verdana, arial, helvetica, sans-serif;
     font-size: 11px;
     font-weight: normal;
-    font-style: normal;
-}
-
+    font-style: normal; }
+#directory { margin-left: 0.25in;
+             margin-right: 0.25in; }
+#thumbnails { padding: 20px 0; }
+.itemup { background: url('/icons/small/back.gif') no-repeat;
+          font-family: times new roman, times, serif;
+          font-size: 16px;
+          font-style: italic;
+          padding-left: 20px;
+          margin-top: 0;
+          margin-bottom: 0; }
+.itemdir { background: url('/icons/small/dir.gif') no-repeat;
+           font-family: times new roman, times, serif;
+           font-size: 16px;
+           padding-left: 20px;
+           margin-top: 0;
+           margin-bottom: 0; }
+.itemfile { background: url('/icons/small/image2.gif') no-repeat;
+            font-family: times new roman, times, serif;
+            font-size: 16px;
+            padding-left: 20px;
+            margin-top: 0;
+            margin-bottom: 0; }
 """
+
+# -------------------------------------------------------------------------
+# Do some setup-ish stuff.
+# -------------------------------------------------------------------------
 
 # Get environment info.
 remote_addr = os.environ.get('REMOTE_ADDR')
@@ -85,6 +100,10 @@ for entry in entries:
         if (ext == '.jpg') or (ext == '.gif') or (ext == '.png'):
             images.append(entry)
 
+# -------------------------------------------------------------------------
+# Print the header.
+# -------------------------------------------------------------------------
+
 print 'Content-type: text/html'
 print ''
 print '<html>'
@@ -109,9 +128,12 @@ print 'toggle the thumbnail display (located at the bottom of this'
 print 'page) to <b>off</b>.'
 print '</p>'
 
-# Print a section for subdirectories.
-print '<h2>Subdirectories:</h2>'
-print '<ul>'
+# -------------------------------------------------------------------------
+# Print the directory listing section.
+# -------------------------------------------------------------------------
+
+print '<hr/>'
+print '<div id="directory">'
 subdirs.reverse()
 base_href = script_href
 if path_info:
@@ -119,32 +141,37 @@ if path_info:
     this_href = os.path.dirname(base_href)
     if thumbnails == 'off':
         this_href = this_href + '?t=off'
-    print '<li style="font-style: italic;"><a href="%s">' \
-          '[PARENT DIRECTORY]</a></li>' % (this_href)
+    print '<p class="itemup"><a href="%s">[PARENT DIRECTORY]</a></p>' \
+          % (this_href)
 for subdir in subdirs:
     this_href = base_href + '/' + urllib.quote(subdir)        
     if thumbnails == 'off':
         this_href = this_href + '?t=off'
-    print '<li><a href="%s">%s</a></li>' % (this_href, subdir)
-print '</ul>'
+    print '<p class="itemdir"><a href="%s">%s</a></p>' % (this_href, subdir)
+if thumbnails == 'off':
+    for image in images:
+        this_href = script_dir_href + '/' + \
+                    urllib.quote(location + '/' + image)
+        print '<p class="itemfile"><a href="%s">%s</a></p>' \
+              % (this_href, image)
+print '</div>'
 
-# If there are any actual images, print a section for them.    
-if len(images):
-    print '<h2>Photos:</h2>'
-    if thumbnails == 'off':
-        print '<ul>'
-        for image in images:
-            url = script_dir_href + '/' + urllib.quote(location + '/' + image)
-            print '<li><a href="%s">%s</a></li>' % (url, image)
-        print '</ul>'
-    else:
-        print '<p>'
-        for image in images:
-            url = script_dir_href + '/' + urllib.quote(location + '/' + image)
-            print '<a href="%s"><img src="%s"/></a></li>' % (url, url)
-        print '</p>'
+# -------------------------------------------------------------------------
+# If we are displaying thumbnails, display them.
+# -------------------------------------------------------------------------
 
+if thumbnails != 'off' and len(images):
+    print '<div id="thumbnails">'
+    for image in images:
+        this_href = script_dir_href + '/' + \
+                    urllib.quote(location + '/' + image)
+        print '<a href="%s"><img src="%s"/></a></li>' % (this_href, this_href)
+    print '</div>'
+
+# -------------------------------------------------------------------------
 # Print the options section.
+# -------------------------------------------------------------------------
+
 print '<h2>Options:</h2>'
 print '<p>'
 thumbnail_toggle_url = script_href
@@ -155,6 +182,11 @@ if thumbnails != 'off':
 print 'Thumbnail display is: <b>%s</b> [<a href="%s">toggle</a>]<br/>' \
       % (thumbnails, thumbnail_toggle_url)
 print '</p>'
+
+# -------------------------------------------------------------------------
+# Print the footer.
+# -------------------------------------------------------------------------
+
 print '<hr/>'
 print '<p><i>Photo indexing script by '
 print '   <a href="http://www.red-bean.com/cmpilato/">C. Michael Pilato</a><br/>'
