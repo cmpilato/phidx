@@ -94,6 +94,7 @@ print '<p>WARNING: Pages with photos might take a while to load.</p>'
 if len(subdirs):
     print '<h2>Subdirectories:</h2>'
     print '<ul>'
+    subdirs.reverse()
     for subdir in subdirs:
         if path_info:
             url = script_location + '/' + path_info + '/' \
