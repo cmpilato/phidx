@@ -3,12 +3,10 @@
 import os
 import os.path
 import time
-import string
 import urllib
 import sys
 import cgi
 import Image   ### Python Imaging Library
-import ezt     ### Greg Stein's EZ Templating library
 
 __version__ = '1.0'
 
