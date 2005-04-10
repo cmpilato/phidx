@@ -7,8 +7,31 @@ import string
 import urllib
 import sys
 import cgi
+import Image   ### Python Imaging Library
+import ezt     ### Greg Stein's EZ Templating library
 
 __version__ = '1.0'
+
+###
+###  URL SCHEME:
+###
+###     CGIURL[/PATH_INFO][?OPTIONS]
+###
+###  If PATH_INFO is a directory, shows a directory listing (subdirs
+###  at the top, images at the bottom).  If a FILE, shows a thumbnail
+###  of the file.
+###
+###  OPTIONS:
+###
+###     t=[on|off]   Thumbnail display on/off toggle
+###     s=SIZE       Image maximum size
+###
+
+__version__ = '2.0'
+
+
+THUMBNAIL_SIZE = 160
+IMAGE_EXTENSIONS = ['.jpg', '.gif', '.png']
 
 # Stylesheet info:
 css_data = """
@@ -82,13 +105,36 @@ if cgi_vars.has_key('t'):
     thumbnails = (cgi_vars['t'])[0]
 else:
     thumbnails = 'on'
-
+    
 # Initialize our subdirs and image list.
 subdirs = []
 images = []
 
 # Loop over the directory entries at the path location.
 location = path_info or '.'
+
+# -------------------------------------------------------------------------
+# Handle files -- an easy out.
+# -------------------------------------------------------------------------
+
+if os.path.isfile(location):
+    base, ext = os.path.splitext(location)
+    if ext.lower() in IMAGE_EXTENSIONS:
+        try:
+            import mimetypes
+            im = Image.open(open(location, 'rb'))
+            im.thumbnail((THUMBNAIL_SIZE, THUMBNAIL_SIZE))
+            mimetype = mimetypes.guess_type(location)[0]
+            print "Content-type: %s\n" % (mimetype)
+            im.save(sys.stdout, im.format)
+        except OSError:
+            print "Content-type: text/plain\n\nUnknown file format!\n"
+    sys.exit(0)
+    
+# -------------------------------------------------------------------------
+# Handle directories -- the rest of the script.
+# -------------------------------------------------------------------------
+
 entries = os.listdir(location)
 entries.sort()
 for entry in entries:
@@ -96,8 +142,7 @@ for entry in entries:
         subdirs.append(entry)
     else:
         base, ext = os.path.splitext(entry)
-        ext = string.lower(ext)
-        if (ext == '.jpg') or (ext == '.gif') or (ext == '.png'):
+        if ext.lower() in IMAGE_EXTENSIONS:
             images.append(entry)
 
 # -------------------------------------------------------------------------
@@ -164,8 +209,10 @@ if thumbnails != 'off' and len(images):
     print '<div id="thumbnails">'
     for image in images:
         this_href = script_dir_href + '/' + \
-                    urllib.quote(location + '/' + image)
-        print '<a href="%s"><img src="%s"/></a></li>' % (this_href, this_href)
+                        urllib.quote(location + '/' + image)
+        thumb_href = script_href + '/' + urllib.quote(location + '/' + image)
+        print '<a href="%s"><img src="%s"/></a></li>' \
+              % (this_href, thumb_href)
     print '</div>'
 
 # -------------------------------------------------------------------------
