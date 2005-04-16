@@ -343,11 +343,15 @@ class Request:
                                    self.cgi_vars),
                      subdir)
         if self.cgi_vars.get('t', 'on') == 'off':
+            cgi_vars = self.cgi_vars.copy()
+            cgi_vars['d'] = 'off'
+            if int(self.cgi_vars.get('s', '0')):
+                cgi_vars['d'] = 'on'
             for image in images:
                 base_path = self.path_info or ''
                 print '<p class="itemfile"><a href="%s">%s</a></p>' \
                       % (self._gen_url(os.path.join(base_path, image),
-                                       self.cgi_vars), image)
+                                       cgi_vars), image)
         print '</div>'
         
         # -----------------------------------------------------------------
@@ -356,17 +360,21 @@ class Request:
         
         if self.cgi_vars.get('t', 'on') == 'on' and len(images):
             print '<div id="thumbnails">'
+            thumb_cgi_vars = self.cgi_vars.copy()
+            thumb_cgi_vars['s'] = str(THUMBNAIL_SIZE)
+            thumb_cgi_vars['d'] = 'on'
             cgi_vars = self.cgi_vars.copy()
-            cgi_vars['s'] = str(THUMBNAIL_SIZE)
-            cgi_vars['d'] = 'on'
+            cgi_vars['d'] = 'off'
+            if not int(self.cgi_vars.get('s', '0')):
+                cgi_vars['d'] = 'on'
             for image in images:
                 base_path = self.path_info or ''
                 thumb_href = self._gen_url(os.path.join(base_path, image),
-                                           cgi_vars)
-                this_href = self._gen_url(os.path.join(base_path, image),
-                                          self.cgi_vars)
+                                           thumb_cgi_vars)
+                img_href = self._gen_url(os.path.join(base_path, image),
+                                         cgi_vars)
                 print '<a href="%s"><img src="%s"/></a></li>' \
-                      % (this_href, thumb_href)
+                      % (img_href, thumb_href)
             print '</div>'
         
         # -----------------------------------------------------------------
