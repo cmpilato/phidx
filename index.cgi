@@ -7,7 +7,7 @@ import urllib
 import sys
 import cgi
 
-__version__ = '2.1'
+__version__ = '2.2'
 
 ###
 ###  URL SCHEME:
@@ -83,6 +83,37 @@ p, li {
 ##
 ############################################################################
 
+COOKIE_KEY = 'photo_opts='
+
+def _cookie_parse(cookie):
+    # Parse the cookie into name/value pairs.
+    cookie_vars = {}
+    if cookie:
+        start = cookie.find(COOKIE_KEY)
+        if start != -1:
+            end = cookie[start:].find(';')
+            start = len(COOKIE_KEY)
+            if end == -1:
+                cookie = cookie[start:]
+            else:
+                cookie = cookie[start:start+end]
+            pieces = cookie.split(',')
+            for piece in pieces:
+                nameval = piece.split('=')
+                cookie_vars[nameval[0]] = len(nameval) > 1 and nameval[1] or ''
+    return cookie_vars
+
+def _cookie_string(cookie_vars):
+    pieces = []
+    for name in cookie_vars.keys():
+        if cookie_vars[name]:
+            pieces.append(name + '=' + cookie_vars[name])
+    outstring = ','.join(pieces) or ''
+    if outstring:
+        outstring = '%s%s; path=/; expires=31-Dec-2012 23:59:59 GMT' \
+                    % (COOKIE_KEY, outstring)
+    return outstring
+    
 def _cgi_parse():
     cgi_data = cgi.parse()
     cgi_vars = {}
@@ -106,9 +137,11 @@ class Request:
         remote_addr = os.environ.get('REMOTE_ADDR')
         script_name = os.environ.get('SCRIPT_NAME')
         server_name = os.environ.get('SERVER_NAME')
+        cookie = os.environ.get('HTTP_COOKIE')
         
         # Build the script hrefs (one for running the script, one for
         # appending photo path stuffs.
+        self.script_name = script_name
         self.script_href = 'http://' + server_name + urllib.quote(script_name)
         self.script_dir_href = os.path.dirname(self.script_href)
         
@@ -125,12 +158,15 @@ class Request:
         
         # Get the current timestamp.
         self.local_time = time.ctime()
+
+        # Handle the cookie.
+        self.cookie_vars = _cookie_parse(cookie)
         
         # CGI options, fetch and validate.
         self.cgi_vars = _cgi_parse()
         if int(self.cgi_vars.get('s', 0)) > MAX_IMAGE_SIZE:
             self.cgi_vars['s'] = str(MAX_IMAGE_SIZE)
-            
+
         # What kind of request is this?
         if os.path.isfile(self.real_path):
             self.do_file()
@@ -151,8 +187,8 @@ class Request:
         if ext.lower() not in IMAGE_EXTENSIONS or not mimetype:
             raise Exception, "Unsupported file format!"
 
-        if self.cgi_vars.has_key('s'):
-            size = int(self.cgi_vars['s'])
+        size = int(self.cgi_vars.get('s', '0'))
+        if size:
             try:
                 import Image
                 im = Image.open(open(self.real_path, 'rb'))
@@ -178,6 +214,14 @@ class Request:
         subdirs = []
         images = []
 
+        # Merge cookie data into CGI data; CGI wins.
+        if not self.cgi_vars.has_key('s') \
+           and self.cookie_vars.get('s'):
+            self.cgi_vars['s'] = self.cookie_vars['s']
+        if not self.cgi_vars.has_key('t') \
+           and self.cookie_vars.get('t'):
+            self.cgi_vars['t'] = self.cookie_vars['t']
+            
         # Loops over the directory entries, sorting into subdirs and
         # images with recognized file extensions
         entries = os.listdir(self.real_path)
@@ -195,7 +239,9 @@ class Request:
         # -----------------------------------------------------------------
         
         print 'Content-type: text/html'
-        print ''
+        cookiestring = _cookie_string(self.cgi_vars)
+        print 'Set-cookie: ' + cookiestring
+        print
         print '<html>'
         print '<head>'
         if self.path_info:
@@ -219,8 +265,9 @@ class Request:
         print '<ul>'
         print '<li>Thumbnail display is <strong>%s</strong></li>' \
               % (self.cgi_vars.get('t', 'on') == 'on' and 'on' or 'off')
+        size = int(self.cgi_vars.get('s', '0'))
         print '<li>Clicked images have max size of <strong>%s</strong></li>' \
-              % (self.cgi_vars.get('s', 'no maximum'))
+              % (size and str(size) or 'no maximum')
         print '</ul>'
         print '<hr/>'
         
@@ -278,17 +325,17 @@ class Request:
         print '<p>'
         print 'Thumbnail display: '
         t_opt = self.cgi_vars.get('t', 'on')
-        for options in [['', 'on', t_opt == 'on'],
+        for options in [['on', 'on', t_opt == 'on'],
                         ['off', 'off', t_opt != 'on']]:
             print '<input type="radio" name="t" value="%s"%s>%s' \
                   % (options[0], options[2] and ' checked' or '', options[1])
         print '</p>'
         print '<p>'
         print 'Maximum image size: '
-        s_opt = self.cgi_vars.get('s', '')
+        s_opt = self.cgi_vars.get('s', '0')
         for options in [['320', '320', s_opt == '320'],
                         ['640', '640', s_opt == '640'],
-                        ['', 'none', s_opt not in ['320', '640']]]:
+                        ['0', 'none', s_opt not in ['320', '640']]]:
             print '<input type="radio" name="s" value="%s"%s>%s' \
                   % (options[0], options[2] and ' checked' or '', options[1])
         print '<input type="submit" value="Change settings">'
