@@ -7,7 +7,7 @@ import urllib
 import sys
 import cgi
 
-__version__ = '2.2'
+__version__ = '2.3'
 
 ###
 ###  URL SCHEME:
@@ -23,6 +23,7 @@ __version__ = '2.2'
 ###     t=[on|off]    Thumbnail display on/off toggle
 ###     s=SIZE        Image size (subject to MAX_IMAGE_SIZE; 0 = original)
 ###     d=[on|off]    Direct image mode (no wrapping HTML) on/off toggle
+###     r=[0|1|2|3]   Image rotation (number x 90 degrees counterclockwise)
 ###
 
 ############################################################################
@@ -81,6 +82,23 @@ p, li {
     margin-top: 0;
     margin-bottom: 0; }
 """ % (THUMBNAIL_SIZE)
+FILE_CSS_DATA = """
+body {
+    background: white; }
+img {
+    border: 10px;
+    }
+h1 {
+    font-family: verdana, arial, helvetica, sans-serif;
+    font-size: 24px;
+    font-weight: bold;
+    font-style: normal; }
+p, li {
+    font-family: verdana, arial, helvetica, sans-serif;
+    font-size: 11px;
+    font-weight: normal;
+    font-style: normal; }
+"""
 ##
 ############################################################################
 
@@ -188,41 +206,58 @@ class Request:
         if ext.lower() not in IMAGE_EXTENSIONS or not mimetype:
             raise Exception, "Unsupported file format!"
         size = int(self.cgi_vars.get('s', '0'))
+        rotate = int(self.cgi_vars.get('r', '0'))
 
         if self.cgi_vars.get('d', 'off') == 'on':
             # Direct mode -- we're serving a picture.
-            if size:
-                try:
-                    import Image
-                    im = Image.open(open(self.real_path, 'rb'))
+            try:
+                import Image
+                im = Image.open(open(self.real_path, 'rb'))
+                if size:
                     im.thumbnail((size, size))
-                    print "Content-type: %s\n" % (mimetype)
-                    im.save(sys.stdout, im.format)
-                except OSError:
-                    raise Exception, "Unsupported file format!"
-            else:
                 print "Content-type: %s\n" % (mimetype)
-                fp = open(self.real_path, 'rb')
-                while 1:
-                    data = fp.read(102400)
-                    if not data:
-                        break
-                    sys.stdout.write(data)
+                im.rotate(rotate * 90).save(sys.stdout, im.format)
+                #im.save(sys.stdout, im.format)
+            except OSError:
+                raise Exception, "Unsupported file format!"
         else:
             # Indirect mode -- we're serving an HTML picture wrapper.
             if not size:
                 raise Exception, "Script error -- no indirect mode " \
                       "support for unsized images."
+            rotate_l = (rotate + 1) % 4
+            rotate_r = (rotate - 1) % 4
+            img_url = self._gen_url(self.path_info, {'s' : str(size),
+                                                     'd' : 'on',
+                                                     'r' : str(rotate)})
+            img_l_url = self._gen_url(self.path_info, {'s' : str(size),
+                                                       'd' : 'off',
+                                                       'r' : str(rotate_l)})
+            img_r_url = self._gen_url(self.path_info, {'s' : str(size),
+                                                       'd' : 'off',
+                                                       'r' : str(rotate_r)})
+            up_url = self._gen_url(os.path.dirname(self.path_info), {})
             print 'Content-type: text/html'
             print
             print '<html>'
             print '<head>'
             print '<title>Photo Index Image: ' + self.real_path + '</title>'
+            print '<style type="text/css">'
+            print FILE_CSS_DATA
+            print '</style>'
             print '</head>'
             print '<body>'
-            print '<img src="%s"/>' \
-                  % (self._gen_url(self.path_info, {'s' : str(size),
-                                                    'd' : 'on'}))
+            print '<div style="text-align: center">'
+            print '<p><a href="%s">Back to Directory Listing</a></p>' \
+                  % (up_url)
+            print '<p><a href="%s"><img src="/icons/forward.gif"></a>' \
+                  % (img_l_url)
+            print '   <span style="vertical-align: top">Rotate Image:</span>'
+            print '   <a href="%s"><img src="/icons/back.gif"></a>' \
+                  % (img_r_url)
+            print '</p>'
+            print '<img src="%s"/>' % (img_url)
+            print '</div>'
             print '</body>'
             print '</html>'
             
