@@ -21,7 +21,8 @@ __version__ = '2.2'
 ###  OPTIONS:
 ###
 ###     t=[on|off]    Thumbnail display on/off toggle
-###     s=SIZE        Image size (subject to MAX_IMAGE_SIZE)
+###     s=SIZE        Image size (subject to MAX_IMAGE_SIZE; 0 = original)
+###     d=[on|off]    Direct image mode (no wrapping HTML) on/off toggle
 ###
 
 ############################################################################
@@ -30,7 +31,7 @@ __version__ = '2.2'
 THUMBNAIL_SIZE = 160
 MAX_IMAGE_SIZE = 640
 IMAGE_EXTENSIONS = ['.jpg', '.gif', '.png']
-CSS_DATA = """
+DIR_CSS_DATA = """
 body {
     background: white; }
 img {
@@ -186,26 +187,44 @@ class Request:
         base, ext = os.path.splitext(self.real_path)
         if ext.lower() not in IMAGE_EXTENSIONS or not mimetype:
             raise Exception, "Unsupported file format!"
-
         size = int(self.cgi_vars.get('s', '0'))
-        if size:
-            try:
-                import Image
-                im = Image.open(open(self.real_path, 'rb'))
-                im.thumbnail((size, size))
+
+        if self.cgi_vars.get('d', 'off') == 'on':
+            # Direct mode -- we're serving a picture.
+            if size:
+                try:
+                    import Image
+                    im = Image.open(open(self.real_path, 'rb'))
+                    im.thumbnail((size, size))
+                    print "Content-type: %s\n" % (mimetype)
+                    im.save(sys.stdout, im.format)
+                except OSError:
+                    raise Exception, "Unsupported file format!"
+            else:
                 print "Content-type: %s\n" % (mimetype)
-                im.save(sys.stdout, im.format)
-            except OSError:
-                raise Exception, "Unsupported file format!"
+                fp = open(self.real_path, 'rb')
+                while 1:
+                    data = fp.read(102400)
+                    if not data:
+                        break
+                    sys.stdout.write(data)
         else:
-            print "Content-type: %s\n" % (mimetype)
-            fp = open(self.real_path, 'rb')
-            while 1:
-                data = fp.read(102400)
-                if not data:
-                    break
-                sys.stdout.write(data)
-            
+            # Indirect mode -- we're serving an HTML picture wrapper.
+            if not size:
+                raise Exception, "Script error -- no indirect mode " \
+                      "support for unsized images."
+            print 'Content-type: text/html'
+            print
+            print '<html>'
+            print '<head>'
+            print '<title>Photo Index Image: ' + self.real_path + '</title>'
+            print '</head>'
+            print '<body>'
+            print '<img src="%s"/>' \
+                  % (self._gen_url(self.path_info, {'s' : str(size),
+                                                    'd' : 'on'}))
+            print '</body>'
+            print '</html>'
             
     def do_directory(self):
         """Handle directory listings."""
@@ -249,7 +268,7 @@ class Request:
         else:
             print '<title>Photo Index</title>'
         print '<style type="text/css">'
-        print CSS_DATA
+        print DIR_CSS_DATA
         print '</style>'
         print '</head>'
         print '<body>'
@@ -304,6 +323,7 @@ class Request:
             print '<div id="thumbnails">'
             cgi_vars = self.cgi_vars.copy()
             cgi_vars['s'] = str(THUMBNAIL_SIZE)
+            cgi_vars['d'] = 'on'
             for image in images:
                 base_path = self.path_info or ''
                 thumb_href = self._gen_url(os.path.join(base_path, image),
