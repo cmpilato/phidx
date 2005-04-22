@@ -424,12 +424,36 @@ def test(path_info, query_string):
     os.environ['PATH_INFO'] = path_info
     os.environ['QUERY_STRING'] = query_string
     req = Request()
+
+def print_exception():
+    exc_type, exc, exc_tb = sys.exc_info()
+    try:
+        import traceback, string
+        tb = string.join(traceback.format_exception(exc_type, exc, exc_tb), '')
+    finally:
+        # prevent circular reference. sys.exc_info documentation warns
+        # "Assigning the traceback return value to a local variable in
+        # a function that is handling an exception will cause a
+        # circular reference..."  This is all based on 'exc_tb', and
+        # we're now done with it. Toss it.
+        del exc_tb
+    print 'Content-type: text/plain\n'
+    print '<p>'
+    print '<pre style="color: blue">HTTP_COOKIE = %s</pre>' \
+          % (os.environ.get('HTTP_COOKIE'))
+    print '<pre style="color: green">PATH_INFO = %s</pre>' \
+          % (os.environ.get('PATH_INFO'))
+    print '<pre style="color: orange">QUERY_STRING = %s</pre>' \
+          % (os.environ.get('QUERY_STRING'))
+    print '<pre style="color: red">%s</pre>' % (tb)
+    print '</p>'
+
     
 def main():
     try:
         req = Request()
-    except Exception, e:
-        print 'Content-type: text/plain\n\n%s\n' % (e)
+    except Exception:
+        print_exception()
     
 if __name__ == "__main__":
     if os.environ.has_key('DEBUG'):
