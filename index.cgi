@@ -227,15 +227,21 @@ class Request:
                       "support for unsized images."
             rotate_l = (rotate + 1) % 4
             rotate_r = (rotate - 1) % 4
-            img_url = self._gen_url(self.path_info, {'s' : str(size),
-                                                     'd' : 'on',
-                                                     'r' : str(rotate)})
-            img_l_url = self._gen_url(self.path_info, {'s' : str(size),
-                                                       'd' : 'off',
-                                                       'r' : str(rotate_l)})
-            img_r_url = self._gen_url(self.path_info, {'s' : str(size),
-                                                       'd' : 'off',
-                                                       'r' : str(rotate_r)})
+            img_url = self._gen_url(self.path_info,
+                                    {'s' : str(size),
+                                     'd' : 'on',
+                                     'r' : str(rotate)})
+            img_left_url = self._gen_url(self.path_info,
+                                         {'s' : str(size),
+                                          'd' : 'off',
+                                          'r' : str(rotate_l)})
+            img_right_url = self._gen_url(self.path_info,
+                                          {'s' : str(size),
+                                           'd' : 'off',
+                                           'r' : str(rotate_r)})
+            img_prev_url = img_next_url = ''
+            real_img_url = self.script_dir_href + '/' \
+                           + urllib.quote(self.real_path)
             up_url = self._gen_url(os.path.dirname(self.path_info), {})
             print 'Content-type: text/html'
             print
@@ -248,15 +254,18 @@ class Request:
             print '</head>'
             print '<body>'
             print '<div style="text-align: center">'
-            print '<p><a href="%s">Back to Directory Listing</a></p>' \
-                  % (up_url)
-            print '<p><a href="%s"><img src="/icons/forward.gif"></a>' \
-                  % (img_l_url)
-            print '   <span style="vertical-align: top">Rotate Image:</span>'
-            print '   <a href="%s"><img src="/icons/back.gif"></a>' \
-                  % (img_r_url)
+            print '<p><a href="%s">' % (img_prev_url)
+            print '   <img src="/icons/left.gif" title="Previous"/></a>'
+            print '   <a href="%s">' % (img_left_url)
+            print '   <img src="/icons/forward.gif" title="Rotate Left"/></a>' 
+            print '   <a href="%s">' % (up_url)
+            print '   <img src="/icons/up.gif" title="Directory Listing"/></a>'
+            print '   <a href="%s">' % (img_right_url)
+            print '   <img src="/icons/back.gif" title="Rotate Right"/></a>'
+            print '   <a href="%s">' % (img_next_url)
+            print '   <img src="/icons/right.gif" title="Next"/></a>'
             print '</p>'
-            print '<img src="%s"/>' % (img_url)
+            print '<a href="%s"><img src="%s"/></a>' % (real_img_url, img_url)
             print '</div>'
             print '</body>'
             print '</html>'
