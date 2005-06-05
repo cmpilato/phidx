@@ -1,0 +1,149 @@
+<html>
+<head>
+<title>Photo Index[is mode "file"] Image[end] - [path]</title>
+<style>
+body {
+    background: white; 
+}
+img {
+    border: 10px;
+}
+h1, h2, p, li {
+    font-family: verdana, arial, helvetica, sans-serif;
+    color: black;
+}
+h1 {
+    font-size: 24px;
+    font-weight: bold;
+    font-style: normal; 
+}
+h2 {
+    font-size: 18px;
+    font-weight: bold;
+    font-style: italic; 
+}
+p, li {
+    font-size: 11px;
+    font-weight: normal;
+    font-style: normal; 
+}
+#directory {
+    background: rgb(200,228,240);
+    border-color: black;
+    border-style: solid;
+    border-width: 1px 2px 2px 1px;
+    margin: 0 0.25in;
+    padding: 0.125in 0.25in;
+}
+#directory a {
+    color: blue;
+    text-decoration: none;
+}
+#directory a:hover {
+    background: yellow;
+}
+#thumbnails {
+    padding: 20px 0; 
+}
+#thumbnails img {
+    width: [thumbnail_size]px;
+    height: 120px;
+}
+#thumbnails a:hover {
+    background: none;
+}
+.itemup {
+    background: url('/icons/small/back.gif') no-repeat;
+    font-family: times new roman, times, serif;
+    font-size: 16px;
+    font-style: italic;
+    padding-left: 20px;
+    margin-top: 0;
+    margin-bottom: 0; 
+}
+.itemdir {
+    background: url('/icons/small/dir.gif') no-repeat;
+    font-family: times new roman, times, serif;
+    font-size: 16px;
+    padding-left: 20px;
+    margin-top: 0;
+    margin-bottom: 0; 
+}
+.itemfile {
+    background: url('/icons/small/image2.gif') no-repeat;
+    font-family: times new roman, times, serif;
+    font-size: 16px;
+    padding-left: 20px;
+    margin-top: 0;
+    margin-bottom: 0; 
+}
+</style>
+</head>
+
+<body>
+[is mode "file"]
+<div style="text-align: center">
+<p><a href="[prev_href]">
+   <!-- img src="/icons/left.gif" title="Previous"/ --></a>
+   <a href="[rotate_left_href]">
+   <img src="/icons/forward.gif" title="Rotate Left"/></a>
+   <a href="[up_href]">
+   <img src="/icons/up.gif" title="Directory Listing"/></a>
+   <a href="[rotate_right_href]">
+   <img src="/icons/back.gif" title="Rotate Right"/></a>
+   <a href="[next_href]">
+   <!-- img src="/icons/right.gif" title="Next"/ --></a -->
+</p>
+<a href="[image_source_href]"><img src="[image_href]"/></a>
+</div>
+[else]
+<h1>Photo Index[if-any path]: [real_path][end]</h1>
+<p>
+[for settings]
+  [settings.description] is set to <strong>[settings.value]</strong>.<br/>
+[end]
+</p>
+<div id="directory">
+[if-any up_href]
+<p class="itemup"><a href="[up_href]">[[]PARENT DIRECTORY]</a></p>
+[end]
+[for subdirs]
+  <p class="itemdir"><a href="[subdirs.href]">[subdirs.name]</a></p>
+[end]
+[if-any images]
+[if-any thumbnails]<div id="thumbnails">[end]
+[for images]
+  [if-any thumbnails]
+  <a href="[images.href]"><img src="[images.thumbnail_href]"/></a>
+  [else]
+  <p class="itemfile"><a href="[images.href]">[images.name]</a></p>
+  [end]
+[end]
+[if-any thumbnails]</div>[end]
+[end]
+</div>
+<h2 id="settings">Change Your Settings:</h2>
+<form method="get" action="[settings_form_href]">
+[for settings]
+<p>
+[settings.description]:
+[for settings.options]
+  <input type="radio" name="[settings.name]" value="[settings.options.value]"
+         [is settings.options.value settings.value] checked[end]/>
+  [settings.options.name]
+[end]
+</p>
+[end]
+<p>
+  <input type="submit" value="Change settings"/>
+</p>
+</form>
+<hr/>
+[end]
+<p><i>Photo indexing script version [version] by 
+   <a href="http://www.red-bean.com/cmpilato/">C.&nbsp;Michael&nbsp;Pilato</a>
+   <br/>
+   <i>Current time: [localtime]</i>
+</p>
+</body>
+</html>

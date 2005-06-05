@@ -6,8 +6,9 @@ import time
 import urllib
 import sys
 import cgi
+import ezt
 
-__version__ = '2.3'
+__version__ = '3.0'
 
 ###
 ###  URL SCHEME:
@@ -32,73 +33,6 @@ __version__ = '2.3'
 THUMBNAIL_SIZE = 160
 MAX_IMAGE_SIZE = 640
 IMAGE_EXTENSIONS = ['.jpg', '.gif', '.png']
-DIR_CSS_DATA = """
-body {
-    background: white; }
-img {
-    border: 10px;
-    width: %dpx;
-    height: 120px; }
-h1 {
-    font-family: verdana, arial, helvetica, sans-serif;
-    font-size: 24px;
-    font-weight: bold;
-    font-style: normal; }
-h2 {
-    font-family: verdana, arial, helvetica, sans-serif;
-    font-size: 18px;
-    font-weight: bold;
-    font-style: italic; }
-p, li {
-    font-family: verdana, arial, helvetica, sans-serif;
-    font-size: 11px;
-    font-weight: normal;
-    font-style: normal; }
-#directory {
-    margin-left: 0.25in;
-    margin-right: 0.25in; }
-#thumbnails {
-    padding: 20px 0; }
-.itemup {
-    background: url('/icons/small/back.gif') no-repeat;
-    font-family: times new roman, times, serif;
-    font-size: 16px;
-    font-style: italic;
-    padding-left: 20px;
-    margin-top: 0;
-    margin-bottom: 0; }
-.itemdir {
-    background: url('/icons/small/dir.gif') no-repeat;
-    font-family: times new roman, times, serif;
-    font-size: 16px;
-    padding-left: 20px;
-    margin-top: 0;
-    margin-bottom: 0; }
-.itemfile {
-    background: url('/icons/small/image2.gif') no-repeat;
-    font-family: times new roman, times, serif;
-    font-size: 16px;
-    padding-left: 20px;
-    margin-top: 0;
-    margin-bottom: 0; }
-""" % (THUMBNAIL_SIZE)
-FILE_CSS_DATA = """
-body {
-    background: white; }
-img {
-    border: 10px;
-    }
-h1 {
-    font-family: verdana, arial, helvetica, sans-serif;
-    font-size: 24px;
-    font-weight: bold;
-    font-style: normal; }
-p, li {
-    font-family: verdana, arial, helvetica, sans-serif;
-    font-size: 11px;
-    font-weight: normal;
-    font-style: normal; }
-"""
 ##
 ############################################################################
 
@@ -197,6 +131,26 @@ class Request:
         if path_info:
             base_href = base_href + '/' + urllib.quote(path_info)
         return base_href + _cgi_string(cgi_vars)
+
+    def _init_template_data(self, is_dir):
+        data = {
+            'version' : __version__,
+            'thumbnail_size' : THUMBNAIL_SIZE,
+            'real_path' : self.real_path,
+            'path' : self.path_info,
+            'mode' : is_dir and "dir" or "file",
+            'localtime' : self.local_time,
+            }
+        return data
+
+    def _generate_output(self, data, extra_headers=[]):
+        template = ezt.Template('template.ezt', 1, ezt.FORMAT_RAW)
+        sys.stdout.write("Content-type: text/html\n")
+        for header in extra_headers:
+            sys.stdout.write(header + "\n")
+        sys.stdout.write("\n")
+        template.generate(sys.stdout, data)
+        sys.exit(0)
         
     def do_file(self):
         """Handle file displays."""
@@ -217,7 +171,6 @@ class Request:
                     im.thumbnail((size, size))
                 print "Content-type: %s\n" % (mimetype)
                 im.rotate(rotate * 90).save(sys.stdout, im.format)
-                #im.save(sys.stdout, im.format)
             except OSError:
                 raise Exception, "Unsupported file format!"
         else:
@@ -227,204 +180,135 @@ class Request:
                       "support for unsized images."
             rotate_l = (rotate + 1) % 4
             rotate_r = (rotate - 1) % 4
-            img_url = self._gen_url(self.path_info,
-                                    {'s' : str(size),
-                                     'd' : 'on',
-                                     'r' : str(rotate)})
-            img_left_url = self._gen_url(self.path_info,
-                                         {'s' : str(size),
-                                          'd' : 'off',
-                                          'r' : str(rotate_l)})
-            img_right_url = self._gen_url(self.path_info,
-                                          {'s' : str(size),
-                                           'd' : 'off',
-                                           'r' : str(rotate_r)})
-            img_prev_url = img_next_url = ''
-            real_img_url = self.script_dir_href + '/' \
-                           + urllib.quote(self.real_path)
-            up_url = self._gen_url(os.path.dirname(self.path_info), {})
-            print 'Content-type: text/html'
-            print
-            print '<html>'
-            print '<head>'
-            print '<title>Photo Index Image: ' + self.real_path + '</title>'
-            print '<style type="text/css">'
-            print FILE_CSS_DATA
-            print '</style>'
-            print '</head>'
-            print '<body>'
-            print '<div style="text-align: center">'
-            print '<p><a href="%s">' % (img_prev_url)
-            print '   <img src="/icons/left.gif" title="Previous"/></a>'
-            print '   <a href="%s">' % (img_left_url)
-            print '   <img src="/icons/forward.gif" title="Rotate Left"/></a>' 
-            print '   <a href="%s">' % (up_url)
-            print '   <img src="/icons/up.gif" title="Directory Listing"/></a>'
-            print '   <a href="%s">' % (img_right_url)
-            print '   <img src="/icons/back.gif" title="Rotate Right"/></a>'
-            print '   <a href="%s">' % (img_next_url)
-            print '   <img src="/icons/right.gif" title="Next"/></a>'
-            print '</p>'
-            print '<a href="%s"><img src="%s"/></a>' % (real_img_url, img_url)
-            print '</div>'
-            print '</body>'
-            print '</html>'
+
+            # Generate output
+            data = self._init_template_data(0)
+            data.update({
+                'up_href' : self._gen_url(os.path.dirname(self.path_info), {}),
+                'prev_href' : None,
+                'next_href' : None,
+                'rotate_left_href' : self._gen_url(self.path_info,
+                                                   {'s' : str(size),
+                                                    'd' : 'off',
+                                                    'r' : str(rotate_l)}),
+                'rotate_right_href' : self._gen_url(self.path_info,
+                                                    {'s' : str(size),
+                                                     'd' : 'off',
+                                                     'r' : str(rotate_r)}),
+                'image_source_href' : "%s/%s" % (self.script_dir_href,
+                                                 urllib.quote(self.real_path)),
+                'image_href' : self._gen_url(self.path_info,
+                                             {'s' : str(size),
+                                              'd' : 'on',
+                                              'r' : str(rotate)}),
+                })
+            self._generate_output(data)
             
     def do_directory(self):
         """Handle directory listings."""
 
-        # Initialize our subdirs and image list.
-        subdirs = []
-        images = []
-
+        # -----------------------------------------------------------------
         # Merge cookie data into CGI data; CGI wins.
+        # -----------------------------------------------------------------
         if not self.cgi_vars.has_key('s') \
            and self.cookie_vars.get('s'):
             self.cgi_vars['s'] = self.cookie_vars['s']
         if not self.cgi_vars.has_key('t') \
            and self.cookie_vars.get('t'):
             self.cgi_vars['t'] = self.cookie_vars['t']
+
+        # -----------------------------------------------------------------
+        # Setup the settings information
+        # -----------------------------------------------------------------
+        settings = []
+
+        thumbnail_options = []
+        thumbnail_options.append(_item(name='on', value='on'))
+        thumbnail_options.append(_item(name='off', value='off'))
+        settings.append(_item(description='Thumbnail display',
+                              name='t',
+                              value=self.cgi_vars.get('t', 'on') == 'on' \
+                                  and 'on' or 'off',
+                              options=thumbnail_options))
+
+        size_options = []
+        size_options.append(_item(name='320', value='320'))
+        size_options.append(_item(name='640', value='640'))
+        size_options.append(_item(name='no maximum', value='0'))
+        settings.append(_item(description='Maximum image size (0 = none)',
+                              name='s',
+                              value=int(self.cgi_vars.get('s', '0')),
+                              options=size_options))
             
-        # Loops over the directory entries, sorting into subdirs and
-        # images with recognized file extensions
+
+        # -----------------------------------------------------------------
+        # Setup the directory listing section, which includes subdirectories
+        # and, if not displaying thumbnails, image files.
+        # -----------------------------------------------------------------
+        subdirs = []
+        images = []
+
+        base_path = self.path_info or ''
         entries = os.listdir(self.real_path)
         entries.sort()
         for entry in entries:
             if os.path.isdir(os.path.join(self.real_path, entry)):
-                subdirs.append(entry)
+                # Subdirectory
+                subdir = _item(name=entry,
+                               href=self._gen_url(os.path.join(base_path,
+                                                               entry),
+                                                  self.cgi_vars))
+                subdirs.append(subdir)
             else:
+                # File
                 base, ext = os.path.splitext(entry)
-                if ext.lower() in IMAGE_EXTENSIONS:
-                    images.append(entry)
-        
-        # -----------------------------------------------------------------
-        # Print the header.
-        # -----------------------------------------------------------------
-        
-        print 'Content-type: text/html'
-        cookiestring = _cookie_string(self.cgi_vars)
-        print 'Set-cookie: ' + cookiestring
-        print
-        print '<html>'
-        print '<head>'
-        if self.path_info:
-            print '<title>Photo Index: ' + self.real_path + '</title>'
-        else:
-            print '<title>Photo Index</title>'
-        print '<style type="text/css">'
-        print DIR_CSS_DATA
-        print '</style>'
-        print '</head>'
-        print '<body>'
-        if self.path_info:
-            print '<h1>Photo Index: ' + self.real_path + '</h1>'
-        else:
-            print '<h1>Photo Index</h1>'
-        
-        # -----------------------------------------------------------------
-        # Print the settings display information
-        # -----------------------------------------------------------------
+                if ext.lower() not in IMAGE_EXTENSIONS:
+                    continue
 
-        print '<ul>'
-        print '<li>Thumbnail display is <strong>%s</strong></li>' \
-              % (self.cgi_vars.get('t', 'on') == 'on' and 'on' or 'off')
-        size = int(self.cgi_vars.get('s', '0'))
-        print '<li>Clicked images have max size of <strong>%s</strong></li>' \
-              % (size and str(size) or 'no maximum')
-        print '</ul>'
-        print '<hr/>'
-        
-        # -----------------------------------------------------------------
-        # Print the directory listing section, which includes subdirectories
-        # and, if not displaying thumbnails, image files.
-        # -----------------------------------------------------------------
-        
-        print '<div id="directory">'
-        subdirs.reverse()
-        if self.path_info:
-            print '<p class="itemup"><a href="%s">[PARENT DIRECTORY]</a></p>' \
-                  % (self._gen_url(os.path.dirname(self.path_info),
-                                   self.cgi_vars))
-        for subdir in subdirs:
-            base_path = self.path_info or ''
-            print '<p class="itemdir"><a href="%s">%s</a></p>' \
-                  % (self._gen_url(os.path.join(base_path, subdir),
-                                   self.cgi_vars),
-                     subdir)
-        if self.cgi_vars.get('t', 'on') == 'off':
-            cgi_vars = self.cgi_vars.copy()
-            cgi_vars['d'] = 'off'
-            if int(self.cgi_vars.get('s', '0')):
-                cgi_vars['d'] = 'on'
-            for image in images:
-                base_path = self.path_info or ''
-                print '<p class="itemfile"><a href="%s">%s</a></p>' \
-                      % (self._gen_url(os.path.join(base_path, image),
-                                       cgi_vars), image)
-        print '</div>'
-        
-        # -----------------------------------------------------------------
-        # If we are displaying thumbnails, display them.
-        # -----------------------------------------------------------------
-        
-        if self.cgi_vars.get('t', 'on') == 'on' and len(images):
-            print '<div id="thumbnails">'
-            thumb_cgi_vars = self.cgi_vars.copy()
-            thumb_cgi_vars['s'] = str(THUMBNAIL_SIZE)
-            thumb_cgi_vars['d'] = 'on'
-            cgi_vars = self.cgi_vars.copy()
-            cgi_vars['d'] = 'off'
-            if not int(self.cgi_vars.get('s', '0')):
-                cgi_vars['d'] = 'on'
-            for image in images:
-                base_path = self.path_info or ''
-                thumb_href = self._gen_url(os.path.join(base_path, image),
+                cgi_vars = self.cgi_vars.copy()
+                cgi_vars['d'] = 'off'
+                thumb_cgi_vars = self.cgi_vars.copy()
+                thumb_cgi_vars['s'] = str(THUMBNAIL_SIZE)
+                thumb_cgi_vars['d'] = 'on'
+                if not int(self.cgi_vars.get('s', '0')):
+                    cgi_vars['d'] = 'on'
+
+                thumb_href = self._gen_url(os.path.join(base_path, entry),
                                            thumb_cgi_vars)
-                img_href = self._gen_url(os.path.join(base_path, image),
+                img_href = self._gen_url(os.path.join(base_path, entry),
                                          cgi_vars)
-                print '<a href="%s"><img src="%s"/></a></li>' \
-                      % (img_href, thumb_href)
-            print '</div>'
+                images.append(_item(name=entry,
+                                    href=img_href,
+                                    thumbnail_href=thumb_href))
+                
+        up_href = None
+        if self.path_info:
+            up_href = self._gen_url(os.path.dirname(self.path_info),
+                                    self.cgi_vars)
+
+        subdirs.reverse() ### TODO :  Custom sort
         
         # -----------------------------------------------------------------
-        # Print the settings modification form.
+        # Generate the output.
         # -----------------------------------------------------------------
         
-        print '<hr/>'
-        print '<h2 id="options">Change Your Settings:</h2>'
-        print '<form method="get" action="%s">' \
-              % (self._gen_url(self.path_info, {}))
-        print '<p>'
-        print 'Thumbnail display: '
-        t_opt = self.cgi_vars.get('t', 'on')
-        for options in [['on', 'on', t_opt == 'on'],
-                        ['off', 'off', t_opt != 'on']]:
-            print '<input type="radio" name="t" value="%s"%s>%s' \
-                  % (options[0], options[2] and ' checked' or '', options[1])
-        print '</p>'
-        print '<p>'
-        print 'Maximum image size: '
-        s_opt = self.cgi_vars.get('s', '0')
-        for options in [['320', '320', s_opt == '320'],
-                        ['640', '640', s_opt == '640'],
-                        ['0', 'none', s_opt not in ['320', '640']]]:
-            print '<input type="radio" name="s" value="%s"%s>%s' \
-                  % (options[0], options[2] and ' checked' or '', options[1])
-        print '<input type="submit" value="Change settings">'
-        print '</p>'
-        print '</form>'
-        
-        # -----------------------------------------------------------------
-        # Print the footer.
-        # -----------------------------------------------------------------
-        
-        print '<hr/>'
-        print '<p><i>Photo indexing script version %s by' % (__version__)
-        print '   <a href="http://www.red-bean.com/cmpilato/">' \
-              'C. Michael Pilato</a><br/>'
-        print '   <i>Current time: %s</i></p>' % (self.local_time)
-        print '</body>'
-        print '</html>'
+        data = self._init_template_data(1)
+        data.update({
+            'settings' : settings,
+            'settings_form_href' : self._gen_url(self.path_info, {}),
+            'up_href' : up_href,
+            'subdirs' : subdirs,
+            'images' : images,
+            'thumbnails' : ezt.boolean(self.cgi_vars.get('t', 'on') == 'on'),
+            })
+        self._generate_output(data,
+                              ['Set-cookie: %s'
+                               % (_cookie_string(self.cgi_vars))])
+
+
+class _item:
+  def __init__(self, **kw):
+    vars(self).update(kw)
 
 
 def test(path_info, query_string):
@@ -433,6 +317,7 @@ def test(path_info, query_string):
     os.environ['PATH_INFO'] = path_info
     os.environ['QUERY_STRING'] = query_string
     req = Request()
+
 
 def print_exception():
     exc_type, exc, exc_tb = sys.exc_info()
@@ -461,9 +346,12 @@ def print_exception():
 def main():
     try:
         req = Request()
+    except SystemExit:
+        pass
     except Exception:
         print_exception()
-    
+
+
 if __name__ == "__main__":
     if os.environ.has_key('DEBUG'):
         test(sys.argv[1], sys.argv[2])
