@@ -15,12 +15,12 @@ import cgi
 import ConfigParser
 import ezt
 
-__version__ = '3.0'
+__version__ = '4.0'
 
 ###
 ###  URL SCHEME:
 ###
-###     CGIURL[/PATH_INFO][?OPTIONS]
+###     CGIURL[/ALBUM][/PATH_INFO][?OPTIONS]
 ###
 ###  If PATH_INFO is a directory, shows a directory listing (subdirs
 ###  at the top, images at the bottom).  If a FILE, shows a thumbnail
