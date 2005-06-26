@@ -6,6 +6,7 @@ import time
 import urllib
 import sys
 import cgi
+import ConfigParser
 import ezt
 
 __version__ = '3.0'
@@ -27,16 +28,67 @@ __version__ = '3.0'
 ###     r=[0|1|2|3]   Image rotation (number x 90 degrees counterclockwise)
 ###
 
-############################################################################
-##  CONFIGURATION SECTION
-##
-THUMBNAIL_SIZE = 160
-MAX_IMAGE_SIZE = 640
-IMAGE_EXTENSIONS = ['.jpg', '.gif', '.png']
-##
+
 ############################################################################
 
+# Global Variables
 COOKIE_KEY = 'photo_opts='
+IMAGE_EXTENSIONS = ['.jpg', '.gif', '.png']
+
+class UnknownAlbumException(Exception):
+    pass
+class MissingAlbumException(Exception):
+    pass
+
+class Config:
+    def __init__(self, album=None):
+        cgi_dir = os.path.dirname(sys.argv[0])
+        template_file = os.path.join(cgi_dir, 'photo-index.ezt')
+        conf_file = os.path.join(cgi_dir, 'photo-index.conf') 
+
+        defaults = {
+            'max_image_size' : 640,
+            'thumbnail_size' : 120,
+            'template_file' : template_file,
+            'location' : None,
+            }
+
+        # Parse the conf-file, if one exists.
+        if not os.path.isfile(conf_file):
+            if album:
+                raise UnknownAlbumException, album
+            else:
+                return
+        
+        parser = ConfigParser.ConfigParser()
+        parser.read(conf_file)
+
+        def _parse_options_section(section, options):
+            for option in ['max_image_size',
+                           'thumbnail_size',
+                           'template',
+                           ]:
+                if parser.has_option(section, option):
+                    value = parser.get(section, option)
+                    try:
+                        value = int(value)
+                    except ValueError:
+                        pass
+                    options[option] = value
+        
+        if parser.has_section('defaults'):
+            _parse_options_section('defaults', defaults)
+        if parser.has_section('albums'):
+            if not album:
+                raise MissingAlbumException
+            if not parser.has_option('albums', album):
+                raise UnknownAlbumException, album
+            options = defaults.copy()
+            options['location'] = parser.get('albums', album)
+            if parser.has_section(album):
+                _parse_options_section(album, options)
+            vars(self).update(options)
+
 
 def _cookie_parse(cookie):
     # Parse the cookie into name/value pairs.
@@ -100,14 +152,27 @@ class Request:
         
         # Parse the path info.
         path_info = os.environ.get('PATH_INFO')
-        if path_info and path_info.find('..') != -1:
+        path_pieces = []
+        if path_info:
+            path_pieces = filter(None, path_info.split('/'))
+        if '..' in path_pieces:
             raise Exception, "Invalid URL"
-        if path_info and (path_info[0] == '/'):
-            path_info = path_info[1:]
+        self.album = None
+        if len(path_pieces):
+            self.album = path_pieces[0]
+        try:
+            self.config = Config(self.album)
+            del path_pieces[0]
+        except UnknownAlbumException:
+            self.album = None
+            self.config = Config(None)
+        path_info = '/'.join(path_pieces)
         if path_info == '':
             path_info = None
         self.path_info = path_info
-        self.real_path = path_info or '.'
+        self.real_path = self.config.location
+        if self.path_info:
+            self.real_path = os.path.join(self.real_path, path_info)
         
         # Get the current timestamp.
         self.local_time = time.ctime()
@@ -117,8 +182,8 @@ class Request:
         
         # CGI options, fetch and validate.
         self.cgi_vars = _cgi_parse()
-        if int(self.cgi_vars.get('s', 0)) > MAX_IMAGE_SIZE:
-            self.cgi_vars['s'] = str(MAX_IMAGE_SIZE)
+        if int(self.cgi_vars.get('s', 0)) > self.config.max_image_size:
+            self.cgi_vars['s'] = str(self.config.max_image_size)
 
         # What kind of request is this?
         if os.path.isfile(self.real_path):
@@ -128,6 +193,8 @@ class Request:
 
     def _gen_url(self, path_info, cgi_vars):
         base_href = self.script_href
+        if self.album:
+            base_href = base_href + '/' + urllib.quote(self.album)
         if path_info:
             base_href = base_href + '/' + urllib.quote(path_info)
         return base_href + _cgi_string(cgi_vars)
@@ -135,7 +202,7 @@ class Request:
     def _init_template_data(self, is_dir):
         data = {
             'version' : __version__,
-            'thumbnail_size' : THUMBNAIL_SIZE,
+            'thumbnail_size' : self.config.thumbnail_size,
             'real_path' : self.real_path,
             'path' : self.path_info,
             'mode' : is_dir and "dir" or "file",
@@ -144,7 +211,7 @@ class Request:
         return data
 
     def _generate_output(self, data, extra_headers=[]):
-        template = ezt.Template('template.ezt', 1, ezt.FORMAT_RAW)
+        template = ezt.Template(self.config.template, 1, ezt.FORMAT_RAW)
         sys.stdout.write("Content-type: text/html\n")
         for header in extra_headers:
             sys.stdout.write(header + "\n")
@@ -195,8 +262,10 @@ class Request:
                                                     {'s' : str(size),
                                                      'd' : 'off',
                                                      'r' : str(rotate_r)}),
-                'image_source_href' : "%s/%s" % (self.script_dir_href,
-                                                 urllib.quote(self.real_path)),
+                'image_full_href' : self._gen_url(self.path_info,
+                                                  {'s' : '0',
+                                                   'd' : 'on',
+                                                   'r' : str(rotate)}),
                 'image_href' : self._gen_url(self.path_info,
                                              {'s' : str(size),
                                               'd' : 'on',
@@ -268,7 +337,7 @@ class Request:
                 cgi_vars = self.cgi_vars.copy()
                 cgi_vars['d'] = 'off'
                 thumb_cgi_vars = self.cgi_vars.copy()
-                thumb_cgi_vars['s'] = str(THUMBNAIL_SIZE)
+                thumb_cgi_vars['s'] = str(self.config.thumbnail_size)
                 thumb_cgi_vars['d'] = 'on'
                 if not int(self.cgi_vars.get('s', '0')):
                     cgi_vars['d'] = 'on'

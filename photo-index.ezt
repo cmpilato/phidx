@@ -28,10 +28,6 @@ p, li {
     font-style: normal; 
 }
 #directory {
-    background: rgb(200,228,240);
-    border-color: black;
-    border-style: solid;
-    border-width: 1px 2px 2px 1px;
     margin: 0 0.25in;
     padding: 0.125in 0.25in;
 }
@@ -51,6 +47,16 @@ p, li {
 }
 #thumbnails a:hover {
     background: none;
+}
+#settings {
+    clear: both;
+}
+.thumbnail {
+    width: [thumbnail_size]px;
+    height: [thumbnail_size]px;
+    margin: 2px;
+    text-align: center;
+    float: left;
 }
 .itemup {
     background: url('/icons/small/back.gif') no-repeat;
@@ -94,7 +100,7 @@ p, li {
    <a href="[next_href]">
    <!-- img src="/icons/right.gif" title="Next"/ --></a -->
 </p>
-<a href="[image_source_href]"><img src="[image_href]"/></a>
+<a href="[image_full_href]"><img src="[image_href]"/></a>
 </div>
 [else]
 <h1>Photo Index[if-any path]: [real_path][end]</h1>
@@ -114,7 +120,7 @@ p, li {
 [if-any thumbnails]<div id="thumbnails">[end]
 [for images]
   [if-any thumbnails]
-  <a href="[images.href]"><img src="[images.thumbnail_href]"/></a>
+  <div class="thumbnail"><a href="[images.href]"><img src="[images.thumbnail_href]"/></a></div>
   [else]
   <p class="itemfile"><a href="[images.href]">[images.name]</a></p>
   [end]
@@ -122,7 +128,8 @@ p, li {
 [if-any thumbnails]</div>[end]
 [end]
 </div>
-<h2 id="settings">Change Your Settings:</h2>
+<div id="settings">
+<h2>Change Your Settings:</h2>
 <form method="get" action="[settings_form_href]">
 [for settings]
 <p>
@@ -138,6 +145,7 @@ p, li {
   <input type="submit" value="Change settings"/>
 </p>
 </form>
+</div>
 <hr/>
 [end]
 <p><i>Photo indexing script version [version] by 
