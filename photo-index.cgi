@@ -209,7 +209,7 @@ class Request:
         data = {
             'version' : __version__,
             'thumbnail_size' : self.config.thumbnail_size,
-            'real_path' : self.real_path,
+            'album' : self.album,
             'path' : self.path_info,
             'mode' : is_dir and "dir" or "file",
             'localtime' : self.local_time,

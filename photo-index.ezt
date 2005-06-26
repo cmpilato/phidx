@@ -103,7 +103,7 @@ p, li {
 <a href="[image_full_href]"><img src="[image_href]"/></a>
 </div>
 [else]
-<h1>Photo Index[if-any path]: [real_path][end]</h1>
+<h1>Photo Index[if-any album]: [album][end][if-any path]: [real_path][end]</h1>
 <p>
 [for settings]
   [settings.description] is set to <strong>[settings.value]</strong>.<br/>
