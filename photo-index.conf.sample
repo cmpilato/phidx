@@ -10,7 +10,10 @@ thumbnail_size = 160
 max_image_size = 640
 
 # template: This specifies the EZT template used to drive the display
-# of the script's output.  [REQUIRED]
+# of the script's output.  If not configured, the script will look for
+# the file photo-index.ezt' in the same directory as the script.
+# Otherwise, paths are relative to the script's location (if not
+# absolute).
 template = photo-index.ezt
 
 

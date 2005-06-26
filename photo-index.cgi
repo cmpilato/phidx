@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+### photo-index.cgi:  CGI script for dynamically serving thumbnailed
+###                   collections of images.
+###
+### Copyright (c) 2005 C. Michael Pilato <cmpilato@red-bean.com>
+###
+
 import os
 import os.path
 import time
@@ -394,13 +400,13 @@ def print_exception():
         import traceback, string
         tb = string.join(traceback.format_exception(exc_type, exc, exc_tb), '')
     finally:
-        # prevent circular reference. sys.exc_info documentation warns
+        # Prevent circular reference. sys.exc_info documentation warns
         # "Assigning the traceback return value to a local variable in
         # a function that is handling an exception will cause a
         # circular reference..."  This is all based on 'exc_tb', and
         # we're now done with it. Toss it.
         del exc_tb
-    print 'Content-type: text/plain\n'
+    print 'Content-type: text/html\n'
     print '<p>'
     print '<pre style="color: blue">HTTP_COOKIE = %s</pre>' \
           % (os.environ.get('HTTP_COOKIE'))
