@@ -16,6 +16,10 @@ max_image_size = 640
 # absolute).
 template = photo-index.ezt
 
+# ignores: This is a comma-delimited list of filename patterns.  Files
+# and directories which match at least one of these patterns are ignored
+# by the script.
+ignores = .*, CVS
 
 [albums]
 ### This section defines the configured albums.  The keys in the

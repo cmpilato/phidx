@@ -12,10 +12,12 @@ import time
 import urllib
 import sys
 import cgi
+import string
+import fnmatch
 import ConfigParser
 import ezt
 
-__version__ = '4.0'
+__version__ = '4.1'
 
 ###
 ###  URL SCHEME:
@@ -57,6 +59,7 @@ class Config:
             'thumbnail_size' : 120,
             'template_file' : template_file,
             'location' : None,
+            'ignores' : '.*, CVS',
             }
 
         # Parse the conf-file, if one exists.
@@ -73,6 +76,7 @@ class Config:
             for option in ['max_image_size',
                            'thumbnail_size',
                            'template',
+                           'ignores',
                            ]:
                 if parser.has_option(section, option):
                     value = parser.get(section, option)
@@ -326,7 +330,20 @@ class Request:
         base_path = self.path_info or ''
         entries = os.listdir(self.real_path)
         entries.sort()
+        ignores = map(string.strip,
+                      filter(None,
+                             string.split(self.config.ignores or '', ',')))
+
+        def _is_ignored(filename):
+            for ignore in ignores:
+                if fnmatch.fnmatch(filename, ignore):
+                    return 1
+            return 0
+            
         for entry in entries:
+            # Skip ignored stuff
+            if _is_ignored(entry):
+                continue
             if os.path.isdir(os.path.join(self.real_path, entry)):
                 # Subdirectory
                 subdir = _item(name=entry,
@@ -397,7 +414,7 @@ def test(path_info, query_string):
 def print_exception():
     exc_type, exc, exc_tb = sys.exc_info()
     try:
-        import traceback, string
+        import traceback
         tb = string.join(traceback.format_exception(exc_type, exc, exc_tb), '')
     finally:
         # Prevent circular reference. sys.exc_info documentation warns
