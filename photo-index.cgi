@@ -17,7 +17,7 @@ import fnmatch
 import ConfigParser
 import ezt
 
-__version__ = '4.1'
+__version__ = '4.1.1'
 
 ###
 ###  URL SCHEME:
@@ -344,7 +344,10 @@ class Request:
             # Skip ignored stuff
             if _is_ignored(entry):
                 continue
-            if os.path.isdir(os.path.join(self.real_path, entry)):
+            real_path = os.path.join(self.real_path, entry)
+            if not os.access(real_path, os.R_OK):
+                continue
+            if os.path.isdir(real_path):
                 # Subdirectory
                 subdir = _item(name=entry,
                                href=self._gen_url(os.path.join(base_path,
