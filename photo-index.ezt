@@ -41,10 +41,6 @@ p, li {
 #thumbnails {
     padding: 20px 0; 
 }
-#thumbnails img {
-    width: [thumbnail_size]px;
-    height: 120px;
-}
 #thumbnails a:hover {
     background: none;
 }
