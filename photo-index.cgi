@@ -497,6 +497,15 @@ def main():
         req = Request()
     except SystemExit:
         pass
+    except MissingAlbumException:
+        print 'Content-type: text/html\n'
+        print '<h1>Missing Album</h1>'
+        print '<p>Unable to determine which album you wish to view.</p>'
+    except UnknownAlbumException, e:
+        print 'Content-type: text/html\n'
+        print '<h1>Unknown Album</h1>'
+        print '<p>There is no album named "%s" available for viewing.</p>' \
+              % (e)
     except Exception:
         print_exception()
 
