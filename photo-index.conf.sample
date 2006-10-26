@@ -21,6 +21,11 @@ template = photo-index.ezt
 # by the script.
 ignores = .*, CVS
 
+# obscure: Hitting this script without specifying an album will generate
+# a list of available albums.  Set this to non-zero to prevent an album
+# from showing up in that list.  Ignored when there is no [albums] section.
+obscure = 0
+
 [albums]
 ### This section defines the configured albums.  The keys in the
 ### section are the names of the albums, and their values are the
