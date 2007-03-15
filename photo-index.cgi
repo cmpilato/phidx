@@ -17,7 +17,7 @@ import fnmatch
 import ConfigParser
 import ezt
 
-__version__ = '4.2.0'
+__version__ = '4.2.1'
 
 ###
 ###  URL SCHEME:
@@ -133,7 +133,7 @@ def _cookie_parse(cookie):
         start = cookie.find(COOKIE_KEY)
         if start != -1:
             end = cookie[start:].find(';')
-            start = len(COOKIE_KEY)
+            start = start + len(COOKIE_KEY)
             if end == -1:
                 cookie = cookie[start:]
             else:
