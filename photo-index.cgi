@@ -17,7 +17,7 @@ import fnmatch
 import ConfigParser
 import ezt
 
-__version__ = '4.2.1'
+__version__ = '4.2.2'
 
 ###
 ###  URL SCHEME:
@@ -287,8 +287,11 @@ class Request:
                 im = Image.open(open(self.real_path, 'rb'))
                 if size:
                     im.thumbnail((size, size))
+                im = im.rotate(rotate * 90)
                 print "Content-type: %s\n" % (mimetype)
-                im.rotate(rotate * 90).save(sys.stdout, im.format)
+                save(sys.stdout, im.format)
+            except IOError:
+                raise
             except OSError:
                 raise Exception, "Unsupported file format!"
         else:
