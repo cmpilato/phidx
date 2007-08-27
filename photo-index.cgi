@@ -285,11 +285,12 @@ class Request:
             try:
                 import Image
                 im = Image.open(open(self.real_path, 'rb'))
+                format = im.format
                 if size:
                     im.thumbnail((size, size))
                 im = im.rotate(rotate * 90)
                 print "Content-type: %s\n" % (mimetype)
-                save(sys.stdout, im.format)
+                im.save(sys.stdout, format)
             except IOError:
                 raise
             except OSError:
