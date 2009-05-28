@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-### photo-index.cgi:  CGI script for dynamically serving thumbnailed
-###                   collections of images.
+### phidx.cgi:  CGI script for dynamically serving thumbnailed
+###             collections of images.
 ###
 ### Copyright (c) 2005 C. Michael Pilato <cmpilato@red-bean.com>
 ###
@@ -55,8 +55,8 @@ class OptionSet:
 class Config:
     def __init__(self):
         cgi_dir = os.path.dirname(sys.argv[0])
-        template_file = os.path.join(cgi_dir, 'photo-index.ezt')
-        conf_file = os.path.join(cgi_dir, 'photo-index.conf') 
+        template_file = os.path.join(cgi_dir, 'phidx.ezt')
+        conf_file = os.path.join(cgi_dir, 'phidx.conf') 
 
         self.parser = None
         self.albums = {}
