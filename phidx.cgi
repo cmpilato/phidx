@@ -270,6 +270,11 @@ class Request:
         template.generate(sys.stdout, data)
         sys.exit(0)
         
+    def _cached_thumbnail_path(self, path, size, rotate):
+        return os.path.join(os.path.dirname(self.real_path),
+                            ".phidx", "thumbnails", str(size), str(rotate),
+                            os.path.basename(self.real_path))
+
     def do_file(self):
         """Handle file displays."""
         import mimetypes
@@ -284,11 +289,44 @@ class Request:
             # Direct mode -- we're serving a picture.
             try:
                 import Image
+
+                # If thumbnailing, try for cached thumbnail image first,
+                # else generate it on the fly (and then save in cache).
+                cache_path = self._cached_thumbnail_path(self.real_path,
+                                                         size, rotate)
+                im = None
+                if size and os.path.exists(cache_path):
+                    try:
+                        im = Image.open(open(cache_path, 'rb'))
+                        print "Content-type: %s\n" % (mimetype)
+                        im.save(sys.stdout, im.format)
+                        return
+                    except:
+                        pass
+
+                # If we get here, we weren't able to pull from a
+                # previously made cache.  We'll process the image
+                # request, caching the results if possible, but
+                # provide those results to the client regardless.
                 im = Image.open(open(self.real_path, 'rb'))
                 format = im.format
                 if size:
                     im.thumbnail((size, size))
+                # Do rotation only after thumbnailing, for efficiency.
                 im = im.rotate(rotate * 90)
+
+                # Try to initialize cache and save our thumbnail to it.
+                # If anything goes wrong, we'll choose not to care.
+                if size:
+                    try:
+                        if not os.path.exists(os.path.dirname(cache_path)):
+                            os.makedirs(os.path.dirname(cache_path))
+                        im.save(open(cache_path, 'wb'), format)
+                        im = Image.open(open(cache_path, 'rb'))
+                    except Exception:
+                        pass
+
+                # Print our header and image results.
                 print "Content-type: %s\n" % (mimetype)
                 im.save(sys.stdout, format)
             except IOError:
