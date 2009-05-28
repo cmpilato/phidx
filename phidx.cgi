@@ -63,6 +63,7 @@ class Config:
         self.defaults = {
             'max_image_size' : 640,
             'thumbnail_size' : 120,
+            'enable_cache' : 0,
             'template_file' : template_file,
             'location' : None,
             'ignores' : '.*, CVS',
@@ -84,6 +85,7 @@ class Config:
     def _parse_options_section(self, section, options):
         for option in ['max_image_size',
                        'thumbnail_size',
+                       'enable_cache',
                        'template',
                        'ignores',
                        'obscure',
@@ -271,6 +273,13 @@ class Request:
         sys.exit(0)
         
     def _cached_thumbnail_path(self, path, size, rotate):
+        """Return the path of the cached thumbnail for the current
+        image with SIZE and rotation ROTATE, or None of no such
+        thumbnail is permitted or desired."""
+        if not self.options.enable_cache:
+            return None
+        if not size:
+            return None
         return os.path.join(os.path.dirname(self.real_path),
                             ".phidx", "thumbnails", str(size), str(rotate),
                             os.path.basename(self.real_path))
@@ -295,7 +304,7 @@ class Request:
                 cache_path = self._cached_thumbnail_path(self.real_path,
                                                          size, rotate)
                 im = None
-                if size and os.path.exists(cache_path):
+                if cache_path and os.path.exists(cache_path):
                     try:
                         im = Image.open(open(cache_path, 'rb'))
                         print "Content-type: %s\n" % (mimetype)
@@ -317,7 +326,7 @@ class Request:
 
                 # Try to initialize cache and save our thumbnail to it.
                 # If anything goes wrong, we'll choose not to care.
-                if size:
+                if cache_path:
                     try:
                         if not os.path.exists(os.path.dirname(cache_path)):
                             os.makedirs(os.path.dirname(cache_path))
