@@ -47,7 +47,7 @@ __version__ = '1.0-dev (r%s)' % ('$Rev$'[6:-2] or '???')
 ###  OPTIONS:
 ###
 ###     t=[on|off]    Thumbnail display on/off toggle
-###     s=SIZE        Image size (subject to MAX_IMAGE_SIZE; 0 = original)
+###     s=SIZE        Image size (0 = original)
 ###     d=[on|off]    Direct image mode (no wrapping HTML) on/off toggle
 ###     r=[0|1|2|3]   Image rotation (number x 90 degrees counterclockwise)
 ###
@@ -77,8 +77,8 @@ class Config:
         self.parser = None
         self.albums = {}
         self.defaults = {
-            'max_image_size' : 640,
             'thumbnail_size' : 120,
+            'allowed_generated_image_sizes': [160, 320, 640],
             'enable_cache' : 0,
             'template' : template_file,
             'location' : None,
@@ -99,20 +99,28 @@ class Config:
                 self.albums[key] = value
 
     def _parse_options_section(self, section, options):
-        for option in ['max_image_size',
-                       'thumbnail_size',
-                       'enable_cache',
-                       'template',
-                       'ignores',
-                       'obscure',
-                       ]:
-            if self.parser.has_option(section, option):
-                value = self.parser.get(section, option)
+        # Parse option values:  [ type, is_list, name ]
+        for is_int, is_list, oname \
+            in [[ 1, 0, 'thumbnail_size' ],
+                [ 1, 1, 'allowed_generated_image_sizes' ],
+                [ 1, 0, 'enable_cache' ],
+                [ 1, 0, 'obscure' ],
+                [ 0, 0, 'template' ],
+                [ 0, 1, 'ignores' ],
+                ]:
+            if self.parser.has_option(section, oname):
+                value = self.parser.get(section, oname)
                 try:
-                    value = int(value)
-                except ValueError:
+                    if is_list:
+                        value = filter(None, map(lambda x: x.strip(),
+                                                 value.split(',')))
+                        if is_int:
+                            value = map(lambda x: int(x), value)
+                    elif is_int:
+                        value = int(value)
+                    options[oname] = value
+                except:
                     pass
-                options[option] = value
 
     def get_albums(self):
         return self.albums.keys()
@@ -238,11 +246,15 @@ class Request:
 
         # Handle the cookie.
         self.cookie_vars = _cookie_parse(cookie)
+        if self.cookie_vars.has_key('s'):
+            self.cookie_vars['s'] = str(self._sanitize_size(
+                int(self.cookie_vars['s'])))
         
         # CGI options, fetch and validate.
         self.cgi_vars = _cgi_parse()
-        if int(self.cgi_vars.get('s', 0)) > self.options.max_image_size:
-            self.cgi_vars['s'] = str(self.options.max_image_size)
+        if self.cgi_vars.has_key('s'):
+            self.cgi_vars['s'] = str(self._sanitize_size(
+                int(self.cgi_vars['s'])))
 
         # Merge cookie data into CGI data; CGI wins.
         if not self.cgi_vars.has_key('s') \
@@ -260,6 +272,14 @@ class Request:
         else:
             self.do_directory()
 
+    def _sanitize_size(self, size):
+        allowed_sizes = self.options.allowed_generated_image_sizes \
+                        + [ self.options.thumbnail_size ]
+        if size != 0 and size not in allowed_sizes:
+            return max(allowed_sizes)
+        else:
+            return size
+        
     def _gen_url(self, path_info, cgi_vars):
         base_href = self.script_href
         if self.album:
@@ -402,10 +422,10 @@ class Request:
                                   and 'on' or 'off',
                               options=thumbnail_options))
         size_options = []
-        size_options.append(_item(name='320', value='320'))
-        size_options.append(_item(name='640', value='640'))
-        size_options.append(_item(name='no maximum', value='0'))
-        settings.append(_item(description='Maximum image size (0 = none)',
+        for size in self.options.allowed_generated_image_sizes:
+            size_options.append(_item(name=str(size), value=str(size)))
+        size_options.append(_item(name='original', value='0'))
+        settings.append(_item(description='Preferred image size',
                               name='s',
                               value=int(self.cgi_vars.get('s', '0')),
                               options=size_options))
@@ -423,12 +443,9 @@ class Request:
         base_path = self.path_info or ''
         entries = os.listdir(self.real_path)
         entries.sort()
-        ignores = map(string.strip,
-                      filter(None,
-                             string.split(self.options.ignores or '', ',')))
 
         def _is_ignored(filename):
-            for ignore in ignores:
+            for ignore in self.options.ignores:
                 if fnmatch.fnmatch(filename, ignore):
                     return 1
             return 0
