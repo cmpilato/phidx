@@ -144,8 +144,7 @@ p, li {
 </div>
 <hr/>
 [end]
-<p><i>Photo indexing script version [version] by 
-   <a href="http://www.red-bean.com/cmpilato/">C.&nbsp;Michael&nbsp;Pilato</a>
+<p><i><a href="http://phidx.googlecode.com/">phidx</a> version [version]
    <br/>
    <i>Current time: [localtime]</i>
 </p>
