@@ -17,7 +17,7 @@ import fnmatch
 import ConfigParser
 import ezt
 
-__version__ = '4.3.0'
+__version__ = '1.0-dev (r%s)' % ('$Rev$'[6:-2] or '???')
 
 ###
 ###  URL SCHEME:
