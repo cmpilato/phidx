@@ -80,7 +80,7 @@ class Config:
             'max_image_size' : 640,
             'thumbnail_size' : 120,
             'enable_cache' : 0,
-            'template_file' : template_file,
+            'template' : template_file,
             'location' : None,
             'ignores' : '.*, CVS',
             'obscure' : 1,
