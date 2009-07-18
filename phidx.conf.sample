@@ -49,11 +49,12 @@ obscure = 0
 ### name as the first component of the PATH_INFO passed to it.
 
 my-album = /some/dir/location
-my-other-album = /some/other/dir/location
+my-obscure-album = /some/other/dir/location
 
 ### Individual album settings
 
-[some-album]
-template = /home/cmpilato/public_html/photos/template.ezt
+[my-album]
+thumbnail_size = 240
 
-[some-other-album]
+[my-obscure-album]
+obscure = 1
