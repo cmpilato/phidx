@@ -430,18 +430,18 @@ class Request:
                               value=int(self.cgi_vars.get('s', '0')),
                               options=size_options))
         return settings
-        
-    def do_directory(self):
-        """Handle directory listings."""
-        # -----------------------------------------------------------------
-        # Setup the directory listing section, which includes subdirectories
-        # and, if not displaying thumbnails, image files.
-        # -----------------------------------------------------------------
+
+    def get_dirents(self, directory, directory_path_info):
+        """Return a 2-tuple containing _item()s for the subdirectories
+        of DIRECTORY and _item()s for the viewable files in that
+        directory.  DIRECTORY_PATH_INFO is the URL relative to the
+        script location which refers to DIRECTORY."""
+
         subdirs = []
         images = []
 
-        base_path = self.path_info or ''
-        entries = os.listdir(self.real_path)
+        base_path = directory_path_info
+        entries = os.listdir(directory)
         entries.sort()
 
         def _is_ignored(filename):
@@ -454,7 +454,7 @@ class Request:
             # Skip ignored stuff
             if _is_ignored(entry):
                 continue
-            real_path = os.path.join(self.real_path, entry)
+            real_path = os.path.join(directory, entry)
             if not os.access(real_path, os.R_OK):
                 continue
             if os.path.isdir(real_path):
@@ -485,14 +485,23 @@ class Request:
                 images.append(_item(name=entry,
                                     href=img_href,
                                     thumbnail_href=thumb_href))
-                
+        subdirs.reverse() ### TODO :  Custom sort
+        return subdirs, images
+    
+    def do_directory(self):
+        """Handle directory listings."""
+        # -----------------------------------------------------------------
+        # Setup the directory listing section, which includes subdirectories
+        # and, if not displaying thumbnails, image files.
+        # -----------------------------------------------------------------
+
+        subdirs, images = self.get_dirents(self.real_path,
+                                           self.path_info or '')
         up_href = None
         if self.path_info:
             up_href = self._gen_url(os.path.dirname(self.path_info),
                                     self.cgi_vars)
 
-        subdirs.reverse() ### TODO :  Custom sort
-        
         # -----------------------------------------------------------------
         # Generate the output.
         # -----------------------------------------------------------------
