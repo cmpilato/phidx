@@ -85,16 +85,18 @@ p, li {
 <body>
 [is mode "file"]
 <div style="text-align: center">
-<p><a href="[prev_href]">
-   <!-- img src="/icons/left.gif" title="Previous"/ --></a>
+<p>[if-any prev_href]
+   <a href="[prev_href]"><img src="/icons/left.gif" title="Previous"></a>
+   [end]
    <a href="[rotate_left_href]">
    <img src="/icons/forward.gif" title="Rotate Left"/></a>
    <a href="[up_href]">
    <img src="/icons/up.gif" title="Directory Listing"/></a>
    <a href="[rotate_right_href]">
    <img src="/icons/back.gif" title="Rotate Right"/></a>
-   <a href="[next_href]">
-   <!-- img src="/icons/right.gif" title="Next"/ --></a -->
+   [if-any next_href]
+   <a href="[next_href]"><img src="/icons/right.gif" title="Next"></a>
+   [end]
 </p>
 <a href="[image_full_href]"><img src="[image_href]"/></a>
 </div>

@@ -322,6 +322,7 @@ class Request:
 
     def do_file(self):
         """Handle file displays."""
+        filename = os.path.basename(self.real_path)
         import mimetypes
         mimetype = mimetypes.guess_type(self.real_path)[0]
         base, ext = os.path.splitext(self.real_path)
@@ -386,12 +387,23 @@ class Request:
             rotate_l = (rotate + 1) % 4
             rotate_r = (rotate - 1) % 4
 
+            # Determine the previous and next images (if any).
+            prev_href = next_href = None
+            subdirs, images = self.get_dirents(os.path.dirname(self.real_path),
+                                               os.path.dirname(self.path_info))
+            num_images = len(images)
+            for i in range(num_images):               
+                if images[i].name == filename:
+                    prev_href = images[(i + num_images - 1) % num_images].href
+                    next_href = images[(i + 1) % num_images].href
+                    break
+                
             # Generate output
             data = self._init_template_data(0)
             data.update({
                 'up_href' : self._gen_url(os.path.dirname(self.path_info), {}),
-                'prev_href' : None,
-                'next_href' : None,
+                'prev_href' : prev_href,
+                'next_href' : next_href,
                 'rotate_left_href' : self._gen_url(self.path_info,
                                                    {'s' : str(size),
                                                     'd' : 'off',
