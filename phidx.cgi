@@ -396,6 +396,8 @@ class Request:
                 if images[i].name == filename:
                     prev_href = images[(i + num_images - 1) % num_images].href
                     next_href = images[(i + 1) % num_images].href
+                    ### TODO: Should we nullify any rotation values carried
+                    ### in these hrefs?
                     break
                 
             # Generate output
