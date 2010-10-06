@@ -3,7 +3,7 @@
 
 # enable_cache: Set this to non-zero to enable phidx's thumbnail
 # caching capabilities.  (Requires write access to the album
-# directories for the creation of .phidx subdirs thereing.)
+# directories for the creation of .phidx subdirs therein.)
 enable_cache = 1
 
 # allowed_generated_image_sizes: This specifies the allowed sizes (in
