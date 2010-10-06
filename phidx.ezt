@@ -44,7 +44,7 @@ p, li {
 #thumbnails a:hover {
     background: none;
 }
-#settings {
+#archives, #settings {
     clear: both;
 }
 .thumbnail {
@@ -104,6 +104,9 @@ p, li {
 [for settings]
   [settings.description] is set to <strong>[settings.value]</strong>.<br/>
 [end]
+[if-any archive_href]
+Click <a href="[archive_href]">here</a> to download an archive of all of these images.<br/>
+[end]
 </p>
 <div id="directory">
 [if-any up_href]
@@ -124,6 +127,17 @@ p, li {
 [if-any thumbnails]</div>[end]
 [end]
 </div>
+[if-any archive_form_href]
+<div id="archives">
+<h2>Download These Images:</h2>
+<form method="get" action="[archive_form_href]">
+<p>Archive password:
+<input type="text" name="a" value="" />
+<input type="submit" value="Download" />
+</p>
+</form>
+</div>
+[end]
 <div id="settings">
 <h2>Change Your Settings:</h2>
 <form method="get" action="[settings_form_href]">

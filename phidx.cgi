@@ -5,7 +5,7 @@
 ###             collections of images.
 ### ------------------------------------------------------------------------
 ###
-### Copyright:  2005-2009 C. Michael Pilato <cmpilato@red-bean.com>,
+### Copyright:  2005-2010 C. Michael Pilato <cmpilato@red-bean.com>,
 ###             2007-2009 Karl Fogel <kfogel@red-bean.com>
 ### 
 ### Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,6 +30,8 @@ import sys
 import cgi
 import string
 import fnmatch
+import tempfile
+import zipfile
 import ConfigParser
 import ezt
 
@@ -50,6 +52,7 @@ __version__ = '1.0-dev (r%s)' % ('$Rev$'[6:-2] or '???')
 ###     s=SIZE        Image size (0 = original)
 ###     d=[on|off]    Direct image mode (no wrapping HTML) on/off toggle
 ###     r=[0|1|2|3]   Image rotation (number x 90 degrees counterclockwise)
+###     a=[PASSWORD]  Archive generation with (possibly optional) password
 ###
 
 
@@ -84,6 +87,7 @@ class Config:
             'location' : None,
             'ignores' : '.*, CVS',
             'obscure' : 1,
+            'archives' : 'off',
             }
 
         # Parse the conf-file, if one exists.
@@ -107,6 +111,7 @@ class Config:
                 [ 1, 0, 'obscure' ],
                 [ 0, 0, 'template' ],
                 [ 0, 1, 'ignores' ],
+                [ 0, 0, 'archives' ],
                 ]:
             if self.parser.has_option(section, oname):
                 value = self.parser.get(section, oname)
@@ -182,11 +187,14 @@ def _cookie_string(cookie_vars):
     return outstring
     
 def _cgi_parse():
-    cgi_data = cgi.parse()
+    cgi_data = cgi.parse(keep_blank_values=1)
     cgi_vars = {}
     for name in cgi_data.keys():
         if cgi_data[name]:
             cgi_vars[name] = cgi_data[name][0]
+        else:
+            raise Exception, name
+            cgi_vars[name] = None
     return cgi_vars
 
 def _cgi_string(cgi_vars):
@@ -270,7 +278,10 @@ class Request:
         elif os.path.isfile(self.real_path):
             self.do_file()
         else:
-            self.do_directory()
+            if self.cgi_vars.has_key('a'):
+                self.do_archive()
+            else:
+                self.do_directory()
 
     def _sanitize_size(self, size):
         allowed_sizes = self.options.allowed_generated_image_sizes \
@@ -307,6 +318,21 @@ class Request:
         sys.stdout.write("\n")
         template.generate(sys.stdout, data)
         sys.exit(0)
+
+    def _album_password(self):
+        """Return the password configured for the current album or
+        None if there's no configured password."""
+        password_file = os.path.join(os.path.join(self.options.location,
+                                                  ".phidx", "password"))
+        if os.path.exists(password_file):
+            try:
+                return open(password_file, 'r').readline().rstrip('\r\n')
+            except:
+                raise Exception, \
+                      "Unable to read password file for '%s' album" \
+                      % (self.album)
+        else:
+            return None
 
     def _cached_thumbnail_path(self, size, rotate):
         """Return the path of the cached thumbnail for the current
@@ -518,7 +544,13 @@ class Request:
         # -----------------------------------------------------------------
         # Generate the output.
         # -----------------------------------------------------------------
-        
+
+        archive_form_href = archive_href = None
+        if self.options.archives == "private":
+            archive_form_href = self._gen_url(self.path_info, {})
+        elif self.options.archives == "on":
+            archive_href = self._gen_url(self.path_info, {'a': ''})
+            
         data = self._init_template_data(1)
         data.update({
             'settings' : self._get_settings(),
@@ -527,10 +559,56 @@ class Request:
             'subdirs' : subdirs,
             'images' : images,
             'thumbnails' : ezt.boolean(self.cgi_vars.get('t', 'on') == 'on'),
+            'archive_form_href' : archive_form_href,
+            'archive_href' : archive_href,
             })
         self._generate_output(data,
                               ['Set-cookie: %s'
                                % (_cookie_string(self.cgi_vars))])
+
+    def do_archive(self):
+        """Handle archive generation."""
+        if self.options.archives == "private":
+            album_password = self._album_password()
+            if album_password is not None \
+               and self.cgi_vars.get('a') != album_password:
+                raise Exception, "Invalid album password"
+        elif self.options.archives == "on":
+            pass
+        else:
+            raise Exception, "Archive generation is disabled"
+
+        entries = os.listdir(self.real_path)
+        sys.stdout.write("Content-type: application/zip\n"
+                         "Content-disposition: attachment; filename=%s.zip\n\n"
+                         % (self.album))
+
+        # Spew a ZIP stream at stdout.  Don't bother compressing it --
+        # these are, after all, image files.
+        #
+        # NOTE: We can't just stream *directly* to sys.stdout, because
+        # the zipfile library wants to tell() and seek() on it, which
+        # can't be done.  So we use a temporary file.  *Sigh*.
+        tmp_fp = tempfile.TemporaryFile()
+        zip_fp = zipfile.ZipFile(tmp_fp, mode='w')
+        try:
+            for entry in entries:
+                full_path = os.path.join(self.real_path, entry)
+                if not os.path.isfile(full_path):
+                    continue
+                base, ext = os.path.splitext(entry)
+                if ext.lower() not in IMAGE_EXTENSIONS:
+                    continue
+                zip_fp.write(full_path, os.path.basename(full_path))
+        finally:
+            zip_fp.close()
+        tmp_fp.seek(0, os.SEEK_SET)
+        while 1:
+            chunk = tmp_fp.read(4096)
+            if not chunk:
+                break
+            sys.stdout.write(chunk)
+        tmp_fp.close()
 
     def do_album_listing(self):
         subdirs = []

@@ -39,6 +39,17 @@ ignores = .*, CVS
 # from showing up in that list.  Ignored when there is no [albums] section.
 obscure = 0
 
+# archives: Toggle support for archive generation, which allows
+# clients to grab all the images in a given directory
+# (non-recursively) as a single ZIP archive.  Valid values are:
+#    off:      no archive generation allowed
+#    on:       archive generation permitted
+#    private:  archive generation permitted only with a valid passphrase
+# When set to "private", phidx will compare the client-provided
+# password entry against the first line of a file named "password"
+# located in the .phidx subdirectory of the album's root directory.
+archives = off
+
 [albums]
 ### This section defines the configured albums.  The keys in the
 ### section are the names of the albums, and their values are the
