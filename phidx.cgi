@@ -66,6 +66,10 @@ class UnknownAlbumException(Exception):
     pass
 class MissingAlbumException(Exception):
     pass
+class EmptyArchiveException(Exception):
+    pass
+class InvalidPasswordException(Exception):
+    pass
 
 class OptionSet:
     def __init__(self, options):
@@ -322,19 +326,15 @@ class Request:
         sys.exit(0)
 
     def _album_password(self):
-        """Return the password configured for the current album or
-        None if there's no configured password."""
+        """Return the password configured for the current album."""
         password_file = os.path.join(os.path.join(self.options.location,
                                                   ".phidx", "password"))
-        if os.path.exists(password_file):
-            try:
-                return open(password_file, 'r').readline().rstrip('\r\n')
-            except:
-                raise Exception, \
-                      "Unable to read password file for '%s' album" \
-                      % (self.album)
-        else:
-            return None
+        try:
+            return open(password_file, 'r').readline().rstrip('\r\n')
+        except:
+            raise Exception, \
+                  "Unable to read password file for '%s' album" \
+                  % (self.album)
 
     def _cached_thumbnail_path(self, size, rotate):
         """Return the path of the cached thumbnail for the current
@@ -548,10 +548,11 @@ class Request:
         # -----------------------------------------------------------------
 
         archive_form_href = archive_href = None
-        if self.options.archives == "private":
-            archive_form_href = self._gen_url(self.path_info, {})
-        elif self.options.archives == "on":
-            archive_href = self._gen_url(self.path_info, {'a': ''})
+        if images:
+            if self.options.archives == "private":
+                archive_form_href = self._gen_url(self.path_info, {})
+            elif self.options.archives == "on":
+                archive_href = self._gen_url(self.path_info, {'a': ''})
             
         data = self._init_template_data(1)
         data.update({
@@ -571,16 +572,29 @@ class Request:
     def do_archive(self):
         """Handle archive generation."""
         if self.options.archives == "private":
-            album_password = self._album_password()
-            if album_password is not None \
-               and self.cgi_vars.get('a') != album_password:
-                raise Exception, "Invalid album password"
+            if self.cgi_vars.get('a') != self._album_password():
+                raise InvalidPasswordException("Archive password is missing or "
+                                               "incorrect.")
         elif self.options.archives == "on":
             pass
         else:
             raise Exception, "Archive generation is disabled"
 
         entries = os.listdir(self.real_path)
+        image_paths = []
+        for entry in entries:
+            full_path = os.path.join(self.real_path, entry)
+            if not os.path.isfile(full_path):
+                continue
+            base, ext = os.path.splitext(entry)
+            if ext.lower() not in IMAGE_EXTENSIONS:
+                continue
+            image_paths.append(full_path)
+
+        if not image_paths:
+            raise EmptyArchiveException("There are no images to download in "
+                                        "the requested directory.")
+        
         sys.stdout.write("Content-type: application/zip\n"
                          "Content-disposition: attachment; filename=%s.zip\n\n"
                          % (self.album))
@@ -594,14 +608,8 @@ class Request:
         tmp_fp = tempfile.TemporaryFile()
         zip_fp = zipfile.ZipFile(tmp_fp, mode='w')
         try:
-            for entry in entries:
-                full_path = os.path.join(self.real_path, entry)
-                if not os.path.isfile(full_path):
-                    continue
-                base, ext = os.path.splitext(entry)
-                if ext.lower() not in IMAGE_EXTENSIONS:
-                    continue
-                zip_fp.write(full_path, os.path.basename(full_path))
+            for image_path in image_paths:
+                zip_fp.write(image_path, os.path.basename(image_path))
         finally:
             zip_fp.close()
         tmp_fp.seek(0, os.SEEK_SET)
@@ -616,12 +624,14 @@ class Request:
         subdirs = []
         albums = self.config.get_albums()
         albums.sort()
+        cgi_vars = self.cgi_vars.copy()
+        del(cgi_vars['a'])
         for album in albums:
             options = self.config.get_album_options(album)
             if options.obscure != 0:
                 continue
             subdir = _item(name=album,
-                           href=self._gen_url(album, self.cgi_vars))
+                           href=self._gen_url(album, cgi_vars))
             subdirs.append(subdir)
 
         if not subdirs:
@@ -635,11 +645,13 @@ class Request:
             'up_href' : None,
             'subdirs' : subdirs,
             'images' : [],
-            'thumbnails' : ezt.boolean(self.cgi_vars.get('t', 'on') == 'on'),
+            'thumbnails' : ezt.boolean(cgi_vars.get('t', 'on') == 'on'),
+            'archive_form_href' : None,
+            'archive_href' : None,
             })
         self._generate_output(data,
                               ['Set-cookie: %s'
-                               % (_cookie_string(self.cgi_vars))])
+                               % (_cookie_string(cgi_vars))])
         
 
 class _item:
@@ -688,7 +700,10 @@ def main():
     except SystemExit:
         pass
     except (MissingAlbumException,
-            UnknownAlbumException):
+            UnknownAlbumException,
+            EmptyArchiveException,
+            InvalidPasswordException,
+            ):
         print_exception(False)
     except Exception:
         print_exception(True)
