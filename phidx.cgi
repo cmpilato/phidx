@@ -307,8 +307,8 @@ class Request:
         sys.stdout.write("\n")
         template.generate(sys.stdout, data)
         sys.exit(0)
-        
-    def _cached_thumbnail_path(self, path, size, rotate):
+
+    def _cached_thumbnail_path(self, size, rotate):
         """Return the path of the cached thumbnail for the current
         image with SIZE and rotation ROTATE, or None of no such
         thumbnail is permitted or desired."""
@@ -338,8 +338,7 @@ class Request:
 
                 # If thumbnailing, try for cached thumbnail image first,
                 # else generate it on the fly (and then save in cache).
-                cache_path = self._cached_thumbnail_path(self.real_path,
-                                                         size, rotate)
+                cache_path = self._cached_thumbnail_path(size, rotate)
                 im = None
                 if cache_path and os.path.exists(cache_path):
                     try:
