@@ -138,7 +138,8 @@ class Config:
 
         # If there's no album supplied, that's a problem.
         if not album:
-            raise MissingAlbumException
+            raise MissingAlbumException("Unable to determine which album you "
+                                        "wish to view.")
 
         # If we don't recognize the album (either because we have no
         # config file, or because the album isn't present in that
@@ -146,7 +147,8 @@ class Config:
         try:
             options['location'] = self.albums[album]
         except KeyError:
-            raise UnknownAlbumException, album
+            raise UnknownAlbumException("There is no album named '%s' available "
+                                        "for viewing." % (album))
 
         # If the album has an options overrides section, merge it into
         # the defaults.
@@ -623,7 +625,8 @@ class Request:
             subdirs.append(subdir)
 
         if not subdirs:
-            raise MissingAlbumException
+            raise MissingAlbumException("Unable to determine which album you "
+                                        "wish to view.")
         
         data = self._init_template_data(1)
         data.update({
@@ -652,7 +655,7 @@ def test(path_info, query_string):
     req = Request()
 
 
-def print_exception():
+def print_exception(detailed=False):
     exc_type, exc, exc_tb = sys.exc_info()
     try:
         import traceback
@@ -665,15 +668,18 @@ def print_exception():
         # we're now done with it. Toss it.
         del exc_tb
     print 'Content-type: text/html\n'
-    print '<p>'
-    print '<pre style="color: blue">HTTP_COOKIE = %s</pre>' \
-          % (os.environ.get('HTTP_COOKIE'))
-    print '<pre style="color: green">PATH_INFO = %s</pre>' \
-          % (os.environ.get('PATH_INFO'))
-    print '<pre style="color: orange">QUERY_STRING = %s</pre>' \
-          % (os.environ.get('QUERY_STRING'))
-    print '<pre style="color: red">%s</pre>' % (tb)
-    print '</p>'
+    print '<h1>phidx: An Error Occured</h1>'
+    if detailed:
+        print '<p><strong>Traceback:</strong></p>'
+        print '<pre style="color: red">%s</pre>' % (tb)
+        print '<p><strong>Environment:</strong></p>'
+        print '<ul>'
+        print '<li>HTTP_COOKIE: %s</li>' % (os.environ.get('HTTP_COOKIE'))
+        print '<li>PATH_INFO: %s</li>' % (os.environ.get('PATH_INFO'))
+        print '<li>QUERY_STRING: %s</li>' % (os.environ.get('QUERY_STRING'))
+        print '</ul>'
+    else:
+        print '<p>' + str(exc) + '</p>'
 
     
 def main():
@@ -681,17 +687,11 @@ def main():
         req = Request()
     except SystemExit:
         pass
-    except MissingAlbumException:
-        print 'Content-type: text/html\n'
-        print '<h1>Missing Album</h1>'
-        print '<p>Unable to determine which album you wish to view.</p>'
-    except UnknownAlbumException, e:
-        print 'Content-type: text/html\n'
-        print '<h1>Unknown Album</h1>'
-        print '<p>There is no album named "%s" available for viewing.</p>' \
-              % (e)
+    except (MissingAlbumException,
+            UnknownAlbumException):
+        print_exception(False)
     except Exception:
-        print_exception()
+        print_exception(True)
 
 
 if __name__ == "__main__":
