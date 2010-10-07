@@ -626,7 +626,8 @@ class Request:
         albums = self.config.get_albums()
         albums.sort()
         cgi_vars = self.cgi_vars.copy()
-        del(cgi_vars['a'])
+        if cgi_vars.has_key('a'):
+          del(cgi_vars['a'])
         for album in albums:
             options = self.config.get_album_options(album)
             if options.obscure != 0:
