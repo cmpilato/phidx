@@ -179,13 +179,15 @@ def _cookie_parse(cookie):
             pieces = cookie.split(',')
             for piece in pieces:
                 nameval = piece.split('=')
-                cookie_vars[nameval[0]] = len(nameval) > 1 and nameval[1] or ''
+                if nameval[0] in COOKIE_VARS:
+                    cookie_vars[nameval[0]] = len(nameval) > 1 and nameval[1] or ''
     return cookie_vars
 
 def _cookie_string(cookie_vars):
+    # Unparse the COOKIE_VARS dictionary into a cookie string.
     pieces = []
     for name in COOKIE_VARS:
-        if cookie_vars[name]:
+        if cookie_vars.get(name):
             pieces.append(name + '=' + cookie_vars[name])
     outstring = ','.join(pieces) or ''
     if outstring:
