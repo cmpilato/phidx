@@ -59,7 +59,7 @@ __version__ = '1.0-dev (r%s)' % ('$Rev$'[6:-2] or '???')
 ############################################################################
 
 # Global Variables
-COOKIE_KEY = 'phidx_opts='
+COOKIE_KEY = 'Phidx-Options'
 COOKIE_VARS = [ 't', 's' ]
 IMAGE_EXTENSIONS = ['.jpg', '.gif', '.png']
 
@@ -162,39 +162,19 @@ class Config:
 
         # Finally, return the options.
         return OptionSet(options)
-        
+       
 
-def _cookie_parse(cookie):
-    # Parse the cookie into name/value pairs.
-    cookie_vars = {}
-    if cookie:
-        start = cookie.find(COOKIE_KEY)
-        if start != -1:
-            end = cookie[start:].find(';')
-            start = start + len(COOKIE_KEY)
-            if end == -1:
-                cookie = cookie[start:]
-            else:
-                cookie = cookie[start:start+end]
-            pieces = cookie.split(',')
-            for piece in pieces:
-                nameval = piece.split('=')
-                if nameval[0] in COOKIE_VARS:
-                    cookie_vars[nameval[0]] = len(nameval) > 1 and nameval[1] or ''
-    return cookie_vars
+def _get_cookie_value(cookie, varname):
+    # Fetch the value of VARNAME from the COOKIE string.
+    if not cookie:
+        return None
+    name_vals = map(string.strip, cookie.split(';'))
+    for name_val in name_vals:
+        name, value = name_val.split('=', 1)
+        if name == varname:
+            return value
+    return None
 
-def _cookie_string(cookie_vars):
-    # Unparse the COOKIE_VARS dictionary into a cookie string.
-    pieces = []
-    for name in COOKIE_VARS:
-        if cookie_vars.get(name):
-            pieces.append(name + '=' + cookie_vars[name])
-    outstring = ','.join(pieces) or ''
-    if outstring:
-        outstring = '%s%s; path=/; expires=31-Dec-2012 23:59:59 GMT' \
-                    % (COOKIE_KEY, outstring)
-    return outstring
-    
 def _cgi_parse():
     cgi_data = cgi.parse(keep_blank_values=1)
     cgi_vars = {}
@@ -221,7 +201,6 @@ class Request:
         remote_addr = os.environ.get('REMOTE_ADDR')
         script_name = os.environ.get('SCRIPT_NAME')
         server_name = os.environ.get('SERVER_NAME')
-        cookie = os.environ.get('HTTP_COOKIE')
 
         # Build the script hrefs (one for running the script, one for
         # appending photo path stuffs.
@@ -262,7 +241,7 @@ class Request:
         self.local_time = time.ctime()
 
         # Handle the cookie.
-        self.cookie_vars = _cookie_parse(cookie)
+        self.cookie_vars = self._parse_cookie()
         if self.cookie_vars.has_key('s'):
             self.cookie_vars['s'] = str(self._sanitize_size(
                 int(self.cookie_vars['s'])))
@@ -292,6 +271,36 @@ class Request:
             else:
                 self.do_directory()
 
+    def _parse_cookie(self):
+        cookie_vars = {}
+        cookie = os.environ.get('HTTP_COOKIE')
+        phidx_opts = _get_cookie_value(cookie, COOKIE_KEY)
+        if phidx_opts:
+            name_vals = phidx_opts.split(',')
+            for name_val in name_vals:
+                name, value = name_val.split('=', 1)
+                if name in COOKIE_VARS:
+                    cookie_vars[name] = value
+        return cookie_vars
+        
+    def _cookie_headers(self, cookie_vars):
+        # Return a set a headers required to carry COOKIE_VARS to the client.
+        tm = time.gmtime(time.time() + (60 * 60 * 24 * 90))
+        expire_time = time.strftime("%a, %d-%m-%Y %H:%M:%S GMT", tm)
+        name_vals = []
+        for name in COOKIE_VARS:
+            if cookie_vars.get(name):
+                name_vals.append("%s=%s" % (name, cookie_vars[name]))
+        opt_val = ','.join(name_vals)
+        if not opt_val:
+            return []
+        return [
+            "Set-Cookie: %s=%s;path=%s;expires=%s" % (COOKIE_KEY,
+                                                      opt_val,
+                                                      self.script_name,
+                                                      expire_time)
+            ]
+        
     def _sanitize_size(self, size):
         allowed_sizes = self.options.allowed_generated_image_sizes \
                         + [ self.options.thumbnail_size ]
@@ -568,9 +577,7 @@ class Request:
             'archive_form_href' : archive_form_href,
             'archive_href' : archive_href,
             })
-        self._generate_output(data,
-                              ['Set-cookie: %s'
-                               % (_cookie_string(self.cgi_vars))])
+        self._generate_output(data, self._cookie_headers(self.cgi_vars))
 
     def do_archive(self):
         """Handle archive generation."""
@@ -653,9 +660,7 @@ class Request:
             'archive_form_href' : None,
             'archive_href' : None,
             })
-        self._generate_output(data,
-                              ['Set-cookie: %s'
-                               % (_cookie_string(cgi_vars))])
+        self._generate_output(data, self._cookie_headers(cgi_vars))
         
 
 class _item:
