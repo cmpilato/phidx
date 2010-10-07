@@ -59,7 +59,7 @@ __version__ = '1.0-dev (r%s)' % ('$Rev$'[6:-2] or '???')
 ############################################################################
 
 # Global Variables
-COOKIE_KEY = 'photo_opts='
+COOKIE_KEY = 'phidx_opts='
 COOKIE_VARS = [ 't', 's' ]
 IMAGE_EXTENSIONS = ['.jpg', '.gif', '.png']
 
