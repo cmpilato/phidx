@@ -60,6 +60,7 @@ __version__ = '1.0-dev (r%s)' % ('$Rev$'[6:-2] or '???')
 
 # Global Variables
 COOKIE_KEY = 'photo_opts='
+COOKIE_VARS = [ 't', 's' ]
 IMAGE_EXTENSIONS = ['.jpg', '.gif', '.png']
 
 class UnknownAlbumException(Exception):
@@ -183,7 +184,7 @@ def _cookie_parse(cookie):
 
 def _cookie_string(cookie_vars):
     pieces = []
-    for name in cookie_vars.keys():
+    for name in COOKIE_VARS:
         if cookie_vars[name]:
             pieces.append(name + '=' + cookie_vars[name])
     outstring = ','.join(pieces) or ''
