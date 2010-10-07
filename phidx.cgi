@@ -193,6 +193,9 @@ def _cgi_string(cgi_vars):
     outstring = '&'.join(pieces)
     return outstring and '?' + outstring or outstring
 
+def _escape(s):
+    return s and cgi.escape(s) or s
+    
 class Request:
     def __init__(self):
         """Do some setup-ish stuff."""
@@ -315,16 +318,16 @@ class Request:
             base_href = base_href + '/' + urllib.quote(self.album)
         if path_info:
             base_href = base_href + '/' + urllib.quote(path_info)
-        return base_href + _cgi_string(cgi_vars)
+        return _escape(base_href + _cgi_string(cgi_vars))
 
     def _init_template_data(self, is_dir):
         data = {
-            'version' : __version__,
+            'version' : _escape(__version__),
             'thumbnail_size' : self.options.thumbnail_size,
-            'album' : self.album,
-            'path' : self.path_info,
+            'album' : _escape(self.album),
+            'path' : _escape(self.path_info),
             'mode' : is_dir and "dir" or "file",
-            'localtime' : self.local_time,
+            'localtime' : _escape(self.local_time),
             }
         return data
 
@@ -432,7 +435,7 @@ class Request:
                                                os.path.dirname(self.path_info))
             num_images = len(images)
             for i in range(num_images):               
-                if images[i].name == filename:
+                if images[i].name == _escape(filename):
                     prev_href = images[(i + num_images - 1) % num_images].href
                     next_href = images[(i + 1) % num_images].href
                     ### TODO: Should we nullify any rotation values carried
@@ -440,7 +443,7 @@ class Request:
                     break
                 
             # Generate output
-            data = self._init_template_data(0)
+            data = self._init_template_data(False)
             data.update({
                 'up_href' : self._gen_url(os.path.dirname(self.path_info), {}),
                 'prev_href' : prev_href,
@@ -512,7 +515,7 @@ class Request:
                 continue
             if os.path.isdir(real_path):
                 # Subdirectory
-                subdir = _item(name=entry,
+                subdir = _item(name=_escape(entry),
                                href=self._gen_url(os.path.join(base_path,
                                                                entry),
                                                   self.cgi_vars))
@@ -535,7 +538,7 @@ class Request:
                                            thumb_cgi_vars)
                 img_href = self._gen_url(os.path.join(base_path, entry),
                                          cgi_vars)
-                images.append(_item(name=entry,
+                images.append(_item(name=_escape(entry),
                                     href=img_href,
                                     thumbnail_href=thumb_href))
         subdirs.reverse() ### TODO :  Custom sort
@@ -566,7 +569,7 @@ class Request:
             elif self.options.archives == "on":
                 archive_href = self._gen_url(self.path_info, {'a': ''})
             
-        data = self._init_template_data(1)
+        data = self._init_template_data(True)
         data.update({
             'settings' : self._get_settings(),
             'settings_form_href' : self._gen_url(self.path_info, {}),
@@ -649,7 +652,7 @@ class Request:
             raise MissingAlbumException("Unable to determine which album you "
                                         "wish to view.")
         
-        data = self._init_template_data(1)
+        data = self._init_template_data(True)
         data.update({
             'settings' : self._get_settings(),
             'settings_form_href' : self._gen_url(self.path_info, {}),
@@ -692,15 +695,15 @@ def print_exception(detailed=False):
     print '<h1>phidx: An Error Occured</h1>'
     if detailed:
         print '<p><strong>Traceback:</strong></p>'
-        print '<pre style="color: red">%s</pre>' % (tb)
+        print '<pre style="color: red">%s</pre>' % (_escape(tb))
         print '<p><strong>Environment:</strong></p>'
         print '<ul>'
-        print '<li>HTTP_COOKIE: %s</li>' % (os.environ.get('HTTP_COOKIE'))
-        print '<li>PATH_INFO: %s</li>' % (os.environ.get('PATH_INFO'))
-        print '<li>QUERY_STRING: %s</li>' % (os.environ.get('QUERY_STRING'))
+        print '<li>HTTP_COOKIE: %s</li>'  % (_escape(os.environ.get('HTTP_COOKIE')))
+        print '<li>PATH_INFO: %s</li>'    % (_escape(os.environ.get('PATH_INFO')))
+        print '<li>QUERY_STRING: %s</li>' % (_escape(os.environ.get('QUERY_STRING')))
         print '</ul>'
     else:
-        print '<p>' + str(exc) + '</p>'
+        print '<p>' + _escape(str(exc)) + '</p>'
 
     
 def main():
