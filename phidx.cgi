@@ -608,10 +608,6 @@ class Request:
             raise EmptyArchiveException("There are no images to download in "
                                         "the requested directory.")
         
-        sys.stdout.write("Content-type: application/zip\n"
-                         "Content-disposition: attachment; filename=%s.zip\n\n"
-                         % (self.album))
-
         # Spew a ZIP stream at stdout.  Don't bother compressing it --
         # these are, after all, image files.
         #
@@ -625,7 +621,12 @@ class Request:
                 zip_fp.write(image_path, os.path.basename(image_path))
         finally:
             zip_fp.close()
+        content_length = tmp_fp.tell()
         tmp_fp.seek(0, os.SEEK_SET)
+        sys.stdout.write("Content-type: application/zip\n"
+                         "Content-length: %d\n"
+                         "Content-disposition: attachment; filename=%s.zip\n\n"
+                         % (content_length, self.album))
         while 1:
             chunk = tmp_fp.read(4096)
             if not chunk:
