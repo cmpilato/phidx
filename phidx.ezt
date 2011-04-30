@@ -1,12 +1,13 @@
 <html>
 <head>
-<title>Photo Index[is mode "file"] Image[end] - [path]</title>
+<title>Photo Index[is mode "file"] Image[end] - [path][if-any slideshow_mode] (Slideshow)[end]</title>
 <style>
 body {
     background: white; 
 }
 img {
     border: 10px;
+    vertical-align: middle;
 }
 h1, h2, p, li {
     font-family: verdana, arial, helvetica, sans-serif;
@@ -85,7 +86,11 @@ p, li {
 <body>
 [is mode "file"]
 <div style="text-align: center">
-<p><a href="[prev_href]">
+<p>[if-any slideshow_mode]
+   <a href="[up_href]">
+   <img src="/icons/alert.red.gif" title="Stop Slideshow"/> Stop Slideshow</a>
+   [else]
+   <a href="[prev_href]">
    <img src="/icons/left.gif" title="Previous"/></a>
    <a href="[rotate_left_href]">
    <img src="/icons/forward.gif" title="Rotate Left"/></a>
@@ -95,6 +100,11 @@ p, li {
    <img src="/icons/back.gif" title="Rotate Right"/></a>
    <a href="[next_href]">
    <img src="/icons/right.gif" title="Next"/></a>
+   [if-any slideshow_href]
+   <a href="[slideshow_href]">
+   <img src="/icons/movie.gif" title="Slideshow"/></a>
+   [end]
+   [end]
 </p>
 <a href="[image_full_href]"><img src="[image_href]"/></a>
 </div>

@@ -52,6 +52,7 @@ __version__ = '1.0-dev (r%s)' % ('$Rev$'[6:-2] or '???')
 ###     s=SIZE        Image size (0 = original)
 ###     d=[on|off]    Direct image mode (no wrapping HTML) on/off toggle
 ###     r=[0|1|2|3]   Image rotation (number x 90 degrees counterclockwise)
+###     ss=[on|off]   Slideshow mode on/off toggle
 ###     a=[PASSWORD]  Archive generation with (possibly optional) password
 ###
 
@@ -92,6 +93,7 @@ class Config:
             'location' : None,
             'ignores' : '.*, CVS',
             'obscure' : 1,
+            'slideshow_delay' : 5,
             'archives' : 'off',
             }
 
@@ -116,6 +118,7 @@ class Config:
                 [ 1, 0, 'obscure' ],
                 [ 0, 0, 'template' ],
                 [ 0, 1, 'ignores' ],
+                [ 1, 0, 'slideshow_delay' ],
                 [ 0, 0, 'archives' ],
                 ]:
             if self.parser.has_option(section, oname):
@@ -194,8 +197,19 @@ def _cgi_string(cgi_vars):
     return outstring and '?' + outstring or outstring
 
 def _escape(s):
-    return s and cgi.escape(s) or s
-    
+    if s:
+        s = s.replace('&', '&amp;')
+        s = s.replace('>', '&gt;')
+        s = s.replace('<', '&lt;')
+    return s
+
+def _unescape(s):
+    if s:
+        s = s.replace('&lt;', '<')
+        s = s.replace('&gt;', '>')
+        s = s.replace('&amp;', '&')
+    return s
+
 class Request:
     def __init__(self):
         """Do some setup-ish stuff."""
@@ -328,6 +342,7 @@ class Request:
             'path' : _escape(self.path_info),
             'mode' : is_dir and "dir" or "file",
             'localtime' : _escape(self.local_time),
+            'slideshow_mode' : ezt.boolean(False),
             }
         return data
 
@@ -363,6 +378,25 @@ class Request:
                             ".phidx", "thumbnails", str(size), str(rotate),
                             os.path.basename(self.real_path))
 
+    def _get_next_prev_href(self, filename, dir_images):
+        # Determine the previous and next images (if any).
+        prev_href = next_href = None
+        num_images = len(dir_images)
+        for i in range(num_images):               
+            if dir_images[i].name == _escape(filename):
+                prev_href = dir_images[(i + num_images - 1) % num_images].href
+                next_href = dir_images[(i + 1) % num_images].href
+                ### TODO: Should we nullify any rotation values carried
+                ### in these hrefs?
+                ###
+                ### FIXME: We should clear the 'ss=on' CGI parameter
+                ### from these.
+                ###
+                ### FIXME: This is stupid, unescaping what was just
+                ### escaped.
+                return _unescape(next_href), _unescape(prev_href)
+        return None, None
+        
     def do_file(self):
         """Handle file displays."""
         filename = os.path.basename(self.real_path)
@@ -373,6 +407,17 @@ class Request:
             raise Exception, "Unsupported file format!"
         size = int(self.cgi_vars.get('s', '0'))
         rotate = int(self.cgi_vars.get('r', '0'))
+
+        # Check for slideshow mode.
+        slideshow_delay = 0
+        if self.cgi_vars.has_key('ss'):
+            if self.options.slideshow_delay \
+                   and self.cgi_vars.get('ss', 'off') == 'on':
+                slideshow_delay = self.options.slideshow_delay
+                if slideshow_delay < 2:
+                    slideshow_delay = 2
+            else:
+                del self.cgi_vars['ss']
 
         if self.cgi_vars.get('d', 'off') == 'on':
             # Direct mode -- we're serving a picture.
@@ -430,24 +475,16 @@ class Request:
             rotate_r = (rotate - 1) % 4
 
             # Determine the previous and next images (if any).
-            prev_href = next_href = None
             subdirs, images = self.get_dirents(os.path.dirname(self.real_path),
                                                os.path.dirname(self.path_info))
-            num_images = len(images)
-            for i in range(num_images):               
-                if images[i].name == _escape(filename):
-                    prev_href = images[(i + num_images - 1) % num_images].href
-                    next_href = images[(i + 1) % num_images].href
-                    ### TODO: Should we nullify any rotation values carried
-                    ### in these hrefs?
-                    break
+            next_href, prev_href = self._get_next_prev_href(filename, images)
                 
             # Generate output
             data = self._init_template_data(False)
             data.update({
                 'up_href' : self._gen_url(os.path.dirname(self.path_info), {}),
-                'prev_href' : prev_href,
-                'next_href' : next_href,
+                'prev_href' : _escape(prev_href),
+                'next_href' : _escape(next_href),
                 'rotate_left_href' : self._gen_url(self.path_info,
                                                    {'s' : str(size),
                                                     'd' : 'off',
@@ -464,8 +501,22 @@ class Request:
                                              {'s' : str(size),
                                               'd' : 'on',
                                               'r' : str(rotate)}),
+                'slideshow_href' : None,
+                'slideshow_mode' : ezt.boolean(slideshow_delay),
                 })
-            self._generate_output(data)
+            if self.options.slideshow_delay and not slideshow_delay:
+                data.update({
+                    ### FIXME: This isn't very graceful, and banks on
+                    ### next_href already having CGI parameters tacked
+                    ### on.
+                    'slideshow_href' : _escape(next_href + '&ss=on'),
+                    })
+            if slideshow_delay and next_href:
+                self._generate_output(data,
+                                      ['Refresh: %d; url=%s' % (slideshow_delay,
+                                                                next_href)])
+            else:
+                self._generate_output(data)
 
     def _get_settings(self):
         settings = []
